@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { hasFeature, setFeature, isTrialActive, hasTrialUsed, startTrial, getTrialDaysLeft } from '@/lib/premium';
 import { motion } from 'framer-motion';
-import { ShieldCheck, FlaskConical, Palette, Check, Sparkles, Clock, Calendar } from 'lucide-react';
+import { ShieldCheck, FlaskConical, Check, Sparkles, Clock, Calendar } from 'lucide-react';
 
 export default function Shop() {
   const [state, setState] = useState({});

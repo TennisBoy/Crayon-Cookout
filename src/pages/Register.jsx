@@ -43,7 +43,7 @@ export default function Register() {
     try {
       const result = await verifyOtp({ email, code: otpCode });
       if (result?.accessToken) {
-        setToken(result.accessToken);
+        await setToken(result.accessToken);
       }
       window.location.href = "/";
     } catch (err) {

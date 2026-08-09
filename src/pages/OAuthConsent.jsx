@@ -18,6 +18,14 @@ export default function OAuthConsent() {
   const [submitting, setSubmitting] = useState(false);
   const [decided, setDecided] = useState("");
   const [error, setError] = useState("");
+  // setReconnect is currently unused: it is reserved for a future
+  // backend-aware consent adapter that restores the status-based handling the
+  // old raw `fetch` calls did — 401 meant re-login (the single-use handle is
+  // still unspent, so preserving `ctx` and retrying after sign-in works),
+  // while 400/403/404/409 all arrive after the handle has already been
+  // atomically consumed, so no retry can succeed and those statuses instead
+  // set `reconnect` to show the reconnect-guidance state below.
+  // eslint-disable-next-line unused-imports/no-unused-vars
   const [reconnect, setReconnect] = useState("");
 
   useEffect(() => {
@@ -52,8 +60,9 @@ export default function OAuthConsent() {
           // `ctx` alone — never forward window.location.search raw: the platform
           // resume returns from_url verbatim, so crafted extras on the consent
           // link (app_base_url, access_token, …) would ride through the login
-          // round-trip and app-params.js would persist them into the freshly
-          // authenticated session.
+          // round-trip and get persisted into the freshly authenticated
+          // session (see the stripped bootstrap params in
+          // src/lib/authReturnTo.js).
           const returnTo =
             window.location.pathname + "?ctx=" + encodeURIComponent(ctx);
           const encoded = encodeURIComponent(returnTo);

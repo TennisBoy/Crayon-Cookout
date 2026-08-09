@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, ShoppingCart, FlaskConical, Palette, Store, ChevronDown } from 'lucide-react';
 
 const MENU_ITEMS = [

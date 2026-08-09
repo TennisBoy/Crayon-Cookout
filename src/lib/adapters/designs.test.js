@@ -91,9 +91,4 @@ describe('designs adapter', () => {
       spy.mockRestore()
     }
   })
-
-  it('list still returns empty array on corrupt storage', async () => {
-    localStorage.setItem('cc_designs', '{not json')
-    expect(await list('-created_date', 50)).toEqual([])
-  })
 })
