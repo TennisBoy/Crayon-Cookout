@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import * as React from 'react'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
@@ -129,5 +129,72 @@ describe('OTP behaviour', () => {
     await user.type(input(), '1')
     await user.tab()
     expect(screen.getByTestId('slot-1').className).not.toContain('ring-1')
+  })
+})
+
+describe('OTP behaviour regressions (fix round 1)', () => {
+  it('pasting a value containing a non-digit rejects the paste entirely', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(<Harness onChange={onChange} />)
+    input().focus()
+    await user.paste('12a456')
+    expect(input().value).toBe('')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('typing a non-digit mid-value leaves the value and selection unchanged', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    const el = input()
+    await user.type(el, '1234')
+    await user.type(el, 'a', { initialSelectionStart: 2, initialSelectionEnd: 2 })
+    expect(el.value).toBe('1234')
+    expect(el.selectionStart).toBe(2)
+    expect(el.selectionEnd).toBe(2)
+  })
+
+  it('typing after moving the caret left inserts at the caret and the ring follows the real insertion point', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    const el = input()
+    await user.type(el, '12{arrowleft}3')
+    expect(el.value).toBe('132')
+    expect(screen.getByTestId('slot-2').className).toContain('ring-1')
+    expect(screen.getByTestId('slot-1').className).not.toContain('ring-1')
+  })
+
+  it('marks every slot in a range selection as active', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    const el = input()
+    await user.type(el, '123456')
+    el.setSelectionRange(1, 4)
+    fireEvent.keyUp(el)
+    expect(screen.getByTestId('slot-0').className).not.toContain('ring-1')
+    expect(screen.getByTestId('slot-1').className).toContain('ring-1')
+    expect(screen.getByTestId('slot-2').className).toContain('ring-1')
+    expect(screen.getByTestId('slot-3').className).toContain('ring-1')
+    expect(screen.getByTestId('slot-4').className).not.toContain('ring-1')
+  })
+
+  it('gives the active empty slot the exact ring, z-index and caret classes', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.type(input(), '1')
+    const activeSlot = screen.getByTestId('slot-1')
+    const activeTokens = activeSlot.className.split(' ')
+    for (const token of ['z-10', 'ring-1', 'ring-ring']) {
+      expect(activeTokens).toContain(token)
+    }
+    const caretDiv = activeSlot.querySelector('.animate-caret-blink')
+    const caretTokens = caretDiv.className.split(' ')
+    for (const token of ['h-4', 'w-px', 'animate-caret-blink', 'bg-foreground', 'duration-1000']) {
+      expect(caretTokens).toContain(token)
+    }
+    const wrapperTokens = caretDiv.parentElement.className.split(' ')
+    for (const token of ['pointer-events-none', 'absolute', 'inset-0', 'flex', 'items-center', 'justify-center']) {
+      expect(wrapperTokens).toContain(token)
+    }
   })
 })
