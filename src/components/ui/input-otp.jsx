@@ -1,16 +1,72 @@
 import * as React from "react"
-import { OTPInput, OTPInputContext } from "input-otp"
 import { Minus } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const InputOTP = React.forwardRef(({ className, containerClassName, ...props }, ref) => (
-  <OTPInput
-    ref={ref}
-    containerClassName={cn("flex items-center gap-2 has-[:disabled]:opacity-50", containerClassName)}
-    className={cn("disabled:cursor-not-allowed", className)}
-    {...props} />
-))
+const InputOTPContext = React.createContext({ slots: [] })
+
+const InputOTP = React.forwardRef((
+  {
+    className,
+    containerClassName,
+    maxLength = 6,
+    value = "",
+    onChange,
+    children,
+    ...props
+  },
+  ref
+) => {
+  const innerRef = React.useRef(null)
+  const [isFocused, setIsFocused] = React.useState(false)
+  const [caret, setCaret] = React.useState(0)
+
+  React.useImperativeHandle(ref, () => innerRef.current)
+
+  // The caret can sit one past the last digit, but never past the final slot.
+  const clampCaret = (position) =>
+    Math.max(0, Math.min(position ?? 0, maxLength - 1))
+
+  const syncCaret = () => setCaret(clampCaret(innerRef.current?.selectionStart))
+
+  const handleChange = (event) => {
+    const next = event.target.value.replace(/\D/g, "").slice(0, maxLength)
+    onChange?.(next)
+    // Selection lands after the last accepted digit.
+    setCaret(clampCaret(next.length))
+  }
+
+  const slots = Array.from({ length: maxLength }, (_, index) => {
+    const char = value[index] ?? null
+    const isActive = isFocused && index === clampCaret(Math.min(value.length, caret))
+    return { char, isActive, hasFakeCaret: isActive && char === null }
+  })
+
+  return (
+    <InputOTPContext.Provider value={{ slots }}>
+      <div className={cn("relative flex items-center gap-2 has-[:disabled]:opacity-50", containerClassName)}>
+        {children}
+        <input
+          ref={innerRef}
+          value={value}
+          onChange={handleChange}
+          onSelect={syncCaret}
+          onKeyUp={syncCaret}
+          onClick={syncCaret}
+          onFocus={() => { setIsFocused(true); syncCaret() }}
+          onBlur={() => setIsFocused(false)}
+          maxLength={maxLength}
+          inputMode="numeric"
+          pattern="[0-9]*"
+          className={cn(
+            "absolute inset-0 h-full w-full cursor-default bg-transparent text-transparent caret-transparent opacity-0 outline-none disabled:cursor-not-allowed",
+            className
+          )}
+          {...props} />
+      </div>
+    </InputOTPContext.Provider>
+  );
+})
 InputOTP.displayName = "InputOTP"
 
 const InputOTPGroup = React.forwardRef(({ className, ...props }, ref) => (
@@ -19,8 +75,8 @@ const InputOTPGroup = React.forwardRef(({ className, ...props }, ref) => (
 InputOTPGroup.displayName = "InputOTPGroup"
 
 const InputOTPSlot = React.forwardRef(({ index, className, ...props }, ref) => {
-  const inputOTPContext = React.useContext(OTPInputContext)
-  const { char, hasFakeCaret, isActive } = inputOTPContext.slots[index]
+  const inputOTPContext = React.useContext(InputOTPContext)
+  const { char, hasFakeCaret, isActive } = inputOTPContext.slots[index] ?? {}
 
   return (
     (<div
