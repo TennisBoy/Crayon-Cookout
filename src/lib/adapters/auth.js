@@ -1,7 +1,7 @@
 /**
  * Auth adapter.
  *
- * Replaces base44.auth.*. Every method is stubbed: wire a real provider by
+ * Replaces the removed hosted auth SDK. Every method is stubbed: wire a real provider by
  * replacing the bodies below. Signatures are fixed — the auth pages and
  * AuthContext call them directly.
  */
