@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { list as listDesigns, update as updateDesign, remove as removeDesign } from '@/lib/adapters/designs';
+import { verifyCrayonPhoto } from '@/lib/adapters/vision';
 import CrayonShape from '@/components/CrayonShape';
 import Silhouette from '@/components/Silhouettes';
 import { Star, Camera, Trophy, Loader2, Check, Trash2 } from 'lucide-react';
@@ -127,7 +128,7 @@ export default function Library() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    base44.entities.CrayonDesign.list('-created_date', 50)
+    listDesigns('-created_date', 50)
       .then(data => { setDesigns(data || []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
@@ -152,7 +153,7 @@ export default function Library() {
       </div>
 
       {tab === 'designs' && <DesignsTab designs={designs} loading={loading} onDeleted={() => {
-        base44.entities.CrayonDesign.list('-created_date', 50)
+        listDesigns('-created_date', 50)
           .then(data => setDesigns(data || []));
       }} />}
       {tab === 'collectibles' && <CollectiblesTab />}
@@ -168,7 +169,7 @@ function DesignsTab({ designs, loading, onDeleted }) {
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      await base44.entities.CrayonDesign.delete(deleteTarget.id);
+      await removeDesign(deleteTarget.id);
     } catch (e) { /* ignore */ }
     setDeleting(false);
     setDeleteTarget(null);
@@ -285,7 +286,7 @@ function CompetitionModal({ design, onClose }) {
 
   const submit = async () => {
     try {
-      await base44.entities.CrayonDesign.update(design.id, {
+      await updateDesign(design.id, {
         is_competition_entry: true,
         competition_email: email,
       });
@@ -388,13 +389,11 @@ function CollectiblesTab() {
     const { setName, crayon } = scanTarget;
     setScanning(crayon.name);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      const res = await base44.integrations.Core.InvokeLLM({
-        prompt: `Look at this image and determine if it shows a crayon shaped like a ${crayon.type} that is ${crayon.colors[0]} in color. Answer with JSON: {"matches": true/false}`,
-        file_urls: [file_url],
-        response_json_schema: { type: 'object', properties: { matches: { type: 'boolean' } } },
+      const { matched } = await verifyCrayonPhoto(file, {
+        type: crayon.type,
+        color: crayon.colors[0],
       });
-      if (res.matches) {
+      if (matched) {
         const key = `${setName}/${crayon.name}`;
         const newCollected = [...new Set([...collected, key])];
         setCollected(newCollected);
