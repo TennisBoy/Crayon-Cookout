@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 42 100% 98%;
+    --foreground: 265 20% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 265 20% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 265 20% 12%;
+    --primary: 265 84% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 80% 90%;
+    --secondary-foreground: 215 28% 17%;
+    --muted: 42 33% 95%;
+    --muted-foreground: 265 10% 40%;
+    --accent: 45 93% 60%;
+    --accent-foreground: 265 20% 12%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 42 30% 88%;
+    --input: 42 30% 88%;
+    --ring: 265 84% 60%;
+    --radius: 1rem;
+    --font-heading: 'Fredoka', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'Fredoka', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Bubblegum Sans', 'Fredoka', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .dark {
+    --background: 265 30% 8%;
+    --foreground: 42 40% 95%;
+    --card: 265 25% 12%;
+    --card-foreground: 42 40% 95%;
+    --popover: 265 25% 12%;
+    --popover-foreground: 42 40% 95%;
+    --primary: 265 84% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 265 20% 20%;
+    --secondary-foreground: 42 40% 95%;
+    --muted: 265 20% 18%;
+    --muted-foreground: 42 20% 65%;
+    --accent: 45 93% 60%;
+    --accent-foreground: 265 20% 12%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 265 20% 22%;
+    --input: 265 20% 22%;
+    --ring: 265 84% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display;
+  }
+}
+
+@layer utilities {
+  .rainbow-text {
+    background: linear-gradient(90deg, #EF4444, #F97316, #FACC15, #22C55E, #3B82F6, #A855F7, #EC4899);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .rainbow-bg {
+    background: linear-gradient(135deg, #FEE2E2, #FED7AA, #FEF3C7, #D1FAE5, #DBEAFE, #E9D5FF, #FCE7F3);
+  }
+
+  .kid-shadow {
+    box-shadow: 0 4px 0 0 rgba(0,0,0,0.08), 0 8px 20px -4px rgba(0,0,0,0.12);
+  }
+
+  .kid-shadow-lg {
+    box-shadow: 0 6px 0 0 rgba(0,0,0,0.08), 0 14px 30px -6px rgba(0,0,0,0.15);
+  }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(-2deg); }
+    50% { transform: rotate(2deg); }
+  }
+  .animate-wiggle { animation: wiggle 0.5s ease-in-out infinite; }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .animate-float { animation: float 3s ease-in-out infinite; }
+
+  @media print {
+    .no-print { display: none !important; }
+  }
+}
