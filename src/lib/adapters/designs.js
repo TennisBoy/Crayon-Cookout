@@ -21,8 +21,8 @@ function readAll() {
 function writeAll(rows) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rows))
-  } catch {
-    // Storage full or unavailable — designs are best-effort, same as premium.js
+  } catch (err) {
+    throw new Error('Could not save design. Browser storage is full or unavailable.', { cause: err })
   }
 }
 

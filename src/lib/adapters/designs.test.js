@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { list, create, update, remove } from '@/lib/adapters/designs'
 
 describe('designs adapter', () => {
@@ -67,5 +67,33 @@ describe('designs adapter', () => {
 
   it('rejects when updating an unknown id', async () => {
     await expect(update('nope', { name: 'x' })).rejects.toThrow(/not found/i)
+  })
+
+  it('create rejects when storage write throws', async () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceededError')
+    })
+    try {
+      await expect(create({ name: 'Test' })).rejects.toThrow(/could not save design/i)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('update rejects when storage write throws', async () => {
+    const saved = await create({ name: 'Original' })
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceededError')
+    })
+    try {
+      await expect(update(saved.id, { name: 'Updated' })).rejects.toThrow(/could not save design/i)
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('list still returns empty array on corrupt storage', async () => {
+    localStorage.setItem('cc_designs', '{not json')
+    expect(await list('-created_date', 50)).toEqual([])
   })
 })
