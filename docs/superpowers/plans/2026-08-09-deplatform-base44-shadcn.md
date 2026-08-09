@@ -488,11 +488,14 @@ function readAll() {
   }
 }
 
+// Writes propagate. A saved design is user-created content that cannot be
+// re-derived, so a failed write must reject rather than resolve as success —
+// Kitchen.jsx has a catch waiting to tell the user the save failed.
 function writeAll(rows) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rows))
-  } catch {
-    // Storage full or unavailable — designs are best-effort, same as premium.js
+  } catch (cause) {
+    throw new Error('Could not save — browser storage is full or unavailable.', { cause })
   }
 }
 
