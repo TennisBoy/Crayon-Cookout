@@ -110,7 +110,8 @@ def test_cannot_touch_another_users_design(client, repo):
         }
     )
     assert client.get("/api/designs").json() == []
-    assert client.patch("/api/designs/theirs", json={"name": "hacked"}).status_code == 404
+    patched = client.patch("/api/designs/theirs", json={"name": "hacked"})
+    assert patched.status_code == 404
     assert client.delete("/api/designs/theirs").status_code == 404
     assert repo.rows[0]["name"] == "Not yours"
 

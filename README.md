@@ -84,16 +84,12 @@ in production.
 ## Tests
 
 ```bash
-cd frontend && npm test        # 89 tests
-cd backend && pytest           # 37 tests
+cd frontend && npm run verify  # typecheck + lint + 98 tests + build
+cd backend && pytest && ruff check .   # 49 tests
 ```
 
 Neither suite needs cloud credentials — the backend fakes its repositories and
 the frontend mocks `fetch`. CI never needs a secret.
-
-```bash
-cd frontend && npm run build && npm run lint
-```
 
 ## Documentation
 
@@ -118,8 +114,9 @@ cd frontend && npm run build && npm run lint
 ## Status
 
 Working: designs CRUD, email/password auth with OTP verification, password
-reset, collectible photo verification, the whole SPA.
+reset, collectible photo verification with server-side persistence, and the
+whole SPA. CI runs both suites plus the Docker builds on every push.
 
-Not wired: Google sign-in (adapter throws an honest "not configured"), the
-OAuth/MCP consent flow, and collectibles still persist to `localStorage` rather
-than the `collectibles` table the schema defines.
+Not wired: Google sign-in (the adapter throws an honest "not configured" rather
+than failing silently) and the OAuth/MCP consent flow, which was specific to
+the platform this app was moved off and has no equivalent yet.

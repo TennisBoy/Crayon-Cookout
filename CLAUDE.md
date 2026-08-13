@@ -10,14 +10,17 @@ commands from `frontend/`, python commands from `backend/`.
 
 ```bash
 cd frontend && npm install && npm run dev    # SPA on :5173
-cd frontend && npm test                      # 89 tests
+cd frontend && npm test                      # 98 tests
 cd frontend && npm run build                 # production bundle
 cd frontend && npm run lint                  # must exit 0
+cd frontend && npm run typecheck             # tsc --noEmit
+cd frontend && npm run verify                # all four, in order
 
 cd backend && python -m venv .venv
 cd backend && .venv/bin/pip install -r requirements-dev.txt
 cd backend && .venv/bin/uvicorn app.main:app --reload   # API on :8000
-cd backend && pytest                         # 37 tests
+cd backend && pytest                         # 49 tests
+cd backend && ruff check .                   # must pass
 
 docker compose up -d --build                 # whole stack
 ```
@@ -62,8 +65,13 @@ adapters call the client. Nothing skips a layer.
 |---|---|
 | `designs.ts` | **Live** — `/api/designs` |
 | `auth.ts` | **Live** — `/api/auth/*`, except `signInWithProvider` |
-| `vision.ts` | **Live** — `/api/vision/verify-crayon` |
+| `collectibles.ts` | **Live** — `/api/collectibles`, `cc_collected` is a cache |
+| `vision.ts` | **Live** — `/api/vision/verify-crayon` (low-level; prefer `collectibles.verify`) |
 | `consent.js` | **Stub** — no backend equivalent for the MCP consent flow |
+
+**Verification and unlocking are one server call.** There is deliberately no
+"mark collected" endpoint — if a client could record an unlock without passing
+the photo check, the check would be advisory and the mechanic honour-system.
 
 Never make a stub return a fake success value — a stub that silently answers is
 worse than one that fails loudly. `verifyCrayonPhoto` is the anti-cheat for
@@ -71,9 +79,11 @@ collectibles, so it runs server-side; never ship an API key to the browser.
 
 ## Client state: the `cc_*` contract
 
-Designs now live in Postgres. What remains local is `cc_collected`,
-`cc_trial_expiry`, `cc_<feature>` premium flags (see `lib/premium.js`), and
-`cc_access_token` (the session token, managed by `lib/api/client.ts`).
+Designs and collectibles now live in Postgres. `cc_collected` remains as a
+read-through **cache** so shelves paint instantly and survive an outage — the
+server is the source of truth. Still purely local: `cc_trial_expiry`,
+`cc_<feature>` premium flags (see `lib/premium.js`), and `cc_access_token`
+(the session token, managed by `lib/api/client.ts`).
 
 Two custom window events drive cross-component updates — dispatch them after
 writing or the UI won't react:
@@ -129,6 +139,9 @@ genuinely hard (focus management, virtualisation, accessible menus).
   it must not reveal whether an account exists. Do not add an error banner.
 - **`OAuthConsent`'s `setReconnect` is intentionally unused**, with an
   eslint-disable. Deleting it cascades into deleting live UI.
+- **CI runs the Docker builds** (`.github/workflows/ci.yml`) because a broken
+  Dockerfile otherwise only surfaces mid-deploy. It also smoke-tests that the
+  API image answers `/api/health` with no configuration at all.
 - **`AdBar.jsx` and `ColouringLab.jsx` are placeholders** — the originals were
   missing or corrupt. Real implementations still needed.
 - **`VITE_API_BASE_URL` is inlined at BUILD time**, not read at runtime.

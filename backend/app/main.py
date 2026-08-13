@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, designs, health, vision
+from app.api.routes import auth, collectibles, designs, health, vision
 from app.config import get_settings
 from app.core.errors import register_exception_handlers
 
@@ -57,7 +57,13 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
 
-    for router in (health.router, auth.router, designs.router, vision.router):
+    for router in (
+        health.router,
+        auth.router,
+        designs.router,
+        vision.router,
+        collectibles.router,
+    ):
         app.include_router(router, prefix=settings.api_prefix)
 
     return app

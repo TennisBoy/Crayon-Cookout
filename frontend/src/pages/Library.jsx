@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { list as listDesigns, update as updateDesign, remove as removeDesign } from '@/lib/adapters/designs';
-import { verifyCrayonPhoto } from '@/lib/adapters/vision';
+import {
+  list as listCollected,
+  verify as verifyCollectible,
+  readCache as readCollectedCache,
+} from '@/lib/adapters/collectibles';
 import CrayonShape from '@/components/CrayonShape';
 import Silhouette from '@/components/Silhouettes';
 import { Star, Camera, Trophy, Loader2, Check, Trash2 } from 'lucide-react';
@@ -114,13 +118,9 @@ const COLLECTIBLE_SETS = [
   },
 ];
 
-function getCollected() {
-  try { return JSON.parse(localStorage.getItem('cc_collected') || '[]'); } catch { return []; }
-}
-function setCollected(arr) {
-  localStorage.setItem('cc_collected', JSON.stringify(arr));
-  window.dispatchEvent(new Event('cc-collected-change'));
-}
+// The cached copy, for an instant first paint. The server is the source of
+// truth; CollectiblesTab refreshes from it on mount.
+const getCollected = readCollectedCache;
 
 export default function Library() {
   const [tab, setTab] = useState('designs');
@@ -375,6 +375,9 @@ function CollectiblesTab() {
   useEffect(() => {
     const handler = () => setCollectedState(getCollected());
     window.addEventListener('cc-collected-change', handler);
+    // Refresh from the server so a collection follows the user to a new
+    // device. listCollected falls back to the cache if the API is unreachable.
+    listCollected().then(setCollectedState).catch(() => {});
     return () => window.removeEventListener('cc-collected-change', handler);
   }, []);
 
@@ -389,14 +392,17 @@ function CollectiblesTab() {
     const { setName, crayon } = scanTarget;
     setScanning(crayon.name);
     try {
-      const { matched } = await verifyCrayonPhoto(file, {
+      // Verification and unlocking are one server call: a client that could
+      // record an unlock without passing the photo check would make the
+      // check optional.
+      const { matched, key } = await verifyCollectible(file, {
+        setName,
+        crayonName: crayon.name,
         type: crayon.type,
         color: crayon.colors[0],
       });
       if (matched) {
-        const key = `${setName}/${crayon.name}`;
-        const newCollected = [...new Set([...collected, key])];
-        setCollected(newCollected);
+        setCollectedState((prev) => [...new Set([...prev, key])]);
         setScanResult({ success: true, name: crayon.name });
       } else {
         setScanResult({ success: false, name: crayon.name });
