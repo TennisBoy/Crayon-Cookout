@@ -1,0 +1,72 @@
+# Crayon Cookout — production compose
+#
+#   cp .env.example .env   # fill it in
+#   docker compose up -d --build
+#
+# Ports bind to 127.0.0.1 only. Nothing is reachable from the internet
+# directly; Cloudflare Tunnel connects outbound and forwards to these
+# loopback ports. See docs/cloudflare-tunnel.md.
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: crayon-cookout-backend:latest
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Secrets come from .env — never baked into the image.
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      VISION_MODEL: ${VISION_MODEL:-claude-sonnet-4-5}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      # 127.0.0.1 prefix is the security boundary — drop it and the API is
+      # exposed on the VM's public interface.
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    networks: [crayon]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status==200 else sys.exit(1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Baked in at build time by Vite. "/api" means the SPA calls its own
+        # origin and Cloudflare routes /api to the backend — no CORS at all.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    image: crayon-cookout-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    networks: [crayon]
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  crayon:
+    driver: bridge

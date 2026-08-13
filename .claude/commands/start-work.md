@@ -53,10 +53,12 @@ explicitly a visual change.
 ## 4. Verify — all three must pass
 
 ```bash
-npm test
-npm run build
-npm run lint
+cd frontend && npm test && npm run build && npm run lint
+cd backend  && .venv/bin/pytest      # or .venv/Scripts/python.exe -m pytest on Windows
 ```
+
+If the change touches infrastructure, also validate it:
+`docker compose config --quiet` and `bash -n scripts/*.sh`.
 
 Do not proceed with a failing gate. Fix the cause; never weaken a test or add an
 eslint-disable to make a gate go green. If `no-linkage.test.js` fails because
