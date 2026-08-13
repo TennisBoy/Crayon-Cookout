@@ -1,6 +1,9 @@
 #env
 .env
 .env.*
+# ...but the template MUST be tracked: every deploy doc says `cp .env.example .env`,
+# and `.env.*` above silently swallowed it.
+!.env.example
 
 # Logs
 /logs
