@@ -8,7 +8,13 @@
  * The access token lives in localStorage via the api client; every method that
  * establishes a session stores it, and signOut clears it.
  */
-import { api, setToken as storeToken, getToken } from '@/lib/api/client'
+import {
+  api,
+  setToken as storeToken,
+  setRefreshToken as storeRefreshToken,
+  clearSession,
+  getToken,
+} from '@/lib/api/client'
 
 export interface User {
   id: string
@@ -38,6 +44,7 @@ export async function signIn({
     { auth: false },
   )
   storeToken(session.access_token)
+  storeRefreshToken(session.refresh_token ?? null)
   return session.user
 }
 
@@ -69,6 +76,7 @@ export async function verifyOtp({
     { auth: false },
   )
   storeToken(session.access_token)
+  storeRefreshToken(session.refresh_token ?? null)
   return { accessToken: session.access_token, user: session.user }
 }
 
@@ -123,7 +131,7 @@ export async function signOut(returnTo?: string): Promise<void> {
     await api.post<MessageResponse>('/auth/logout')
   } finally {
     // Clear locally even if the server call fails — the user asked to leave.
-    storeToken(null)
+    clearSession()
     if (returnTo && typeof window !== 'undefined') window.location.href = returnTo
   }
 }

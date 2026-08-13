@@ -18,7 +18,7 @@
 // resolves to "signed out" asynchronously. App shows a loading spinner
 // first; every assertion below uses `findBy*` (which retries under the
 // hood) to wait past that spinner instead of asserting on it.
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import App from '@/App'
 
@@ -69,10 +69,13 @@ describe('route rendering smoke test', () => {
     ).toBeInTheDocument()
   })
 
-  it('/kitchen renders Kitchen', async () => {
+  // /kitchen and /library are API-backed and sit behind ProtectedRoute.
+  // Signed out they must send the visitor to log in, not render an empty
+  // screen full of 401s. Signed-in rendering is covered further down.
+  it('/kitchen redirects to login when signed out', async () => {
     renderRoute('/kitchen')
     expect(
-      await screen.findByRole('heading', { name: /The Kitchen/i })
+      await screen.findByRole('heading', { name: /Welcome back/i })
     ).toBeInTheDocument()
   })
 
@@ -90,10 +93,10 @@ describe('route rendering smoke test', () => {
     ).toBeInTheDocument()
   })
 
-  it('/library renders Library', async () => {
+  it('/library redirects to login when signed out', async () => {
     renderRoute('/library')
     expect(
-      await screen.findByRole('heading', { name: /Your Library/i })
+      await screen.findByRole('heading', { name: /Welcome back/i })
     ).toBeInTheDocument()
   })
 
@@ -148,5 +151,51 @@ describe('route rendering smoke test', () => {
       await screen.findByRole('heading', { name: 'Page Not Found' })
     ).toBeInTheDocument()
     expect(screen.getByText('404')).toBeInTheDocument()
+  })
+})
+
+// The guard is only half the story: it must let a signed-in user THROUGH.
+// A guard that redirects everyone would pass the tests above and break the
+// app completely.
+describe('protected routes when signed in', () => {
+  beforeEach(() => {
+    localStorage.setItem('cc_access_token', 'test-token')
+    // AuthContext calls getCurrentUser() -> GET /auth/me on mount.
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const path = String(url)
+      if (path.endsWith('/auth/me')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ id: 'u1', email: 'kid@example.com' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      // Designs and collectibles listings — empty is fine for a render check.
+      return Promise.resolve(
+        new Response(JSON.stringify(path.includes('collectibles') ? { collected: [] } : []), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('/kitchen renders Kitchen for a signed-in user', async () => {
+    renderRoute('/kitchen')
+    expect(
+      await screen.findByRole('heading', { name: /The Kitchen/i })
+    ).toBeInTheDocument()
+  })
+
+  it('/library renders Library for a signed-in user', async () => {
+    renderRoute('/library')
+    expect(
+      await screen.findByRole('heading', { name: /Your Library/i })
+    ).toBeInTheDocument()
   })
 })

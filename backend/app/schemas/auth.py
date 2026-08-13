@@ -40,6 +40,11 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Password
 
 
+class RefreshRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    refresh_token: str = Field(min_length=1, max_length=1024)
+
+
 class UserOut(BaseModel):
     id: str
     email: str | None = None

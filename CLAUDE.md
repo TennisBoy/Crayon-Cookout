@@ -10,7 +10,7 @@ commands from `frontend/`, python commands from `backend/`.
 
 ```bash
 cd frontend && npm install && npm run dev    # SPA on :5173
-cd frontend && npm test                      # 98 tests
+cd frontend && npm test                      # 100 tests
 cd frontend && npm run build                 # production bundle
 cd frontend && npm run lint                  # must exit 0
 cd frontend && npm run typecheck             # tsc --noEmit
@@ -19,7 +19,7 @@ cd frontend && npm run verify                # all four, in order
 cd backend && python -m venv .venv
 cd backend && .venv/bin/pip install -r requirements-dev.txt
 cd backend && .venv/bin/uvicorn app.main:app --reload   # API on :8000
-cd backend && pytest                         # 49 tests
+cd backend && pytest                         # 58 tests
 cd backend && ruff check .                   # must pass
 
 docker compose up -d --build                 # whole stack
@@ -139,6 +139,16 @@ genuinely hard (focus management, virtualisation, accessible menus).
   it must not reveal whether an account exists. Do not add an error banner.
 - **`OAuthConsent`'s `setReconnect` is intentionally unused**, with an
   eslint-disable. Deleting it cascades into deleting live UI.
+- **`/kitchen` and `/library` are behind `ProtectedRoute`** in App.jsx; the
+  other pages are local-only and work signed out. Signed out, those two
+  redirect to `/login` rather than rendering a screen full of 401s.
+- **The API client refreshes tokens on a 401 and replays the request once.**
+  `isRetry` stops an infinite loop; a shared in-flight promise means a burst of
+  concurrent 401s triggers one refresh, not one per request.
+- **Auth endpoints are rate limited in-process** (`core/rate_limit.py`). Per
+  container, so two workers get two budgets and a restart clears it — it slows
+  credential stuffing, it is not an edge rule. Cloudflare is the right place
+  for real protection.
 - **CI runs the Docker builds** (`.github/workflows/ci.yml`) because a broken
   Dockerfile otherwise only surfaces mid-deploy. It also smoke-tests that the
   API image answers `/api/health` with no configuration at all.

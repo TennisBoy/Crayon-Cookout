@@ -1,9 +1,10 @@
 """Shared route dependencies."""
 from typing import Annotated
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 
 from app.core.errors import AuthError
+from app.core.rate_limit import Limit, limiter
 from app.schemas.auth import UserOut
 from app.services.auth_service import AuthService
 from app.services.designs_service import DesignsService
@@ -37,3 +38,28 @@ def current_user(
 CurrentUser = Annotated[UserOut, Depends(current_user)]
 AuthDep = Annotated[AuthService, Depends(get_auth_service)]
 DesignsDep = Annotated[DesignsService, Depends(get_designs_service)]
+
+
+def client_key(request: Request) -> str:
+    """Identify the caller for rate limiting.
+
+    Behind Cloudflare Tunnel the socket peer is always loopback, so the real
+    address arrives in a forwarded header. CF-Connecting-IP is set by
+    Cloudflare and cannot be spoofed by the client when the only path in is
+    the tunnel; X-Forwarded-For is the fallback for a direct/local run.
+    """
+    forwarded = request.headers.get("cf-connecting-ip") or request.headers.get(
+        "x-forwarded-for"
+    )
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def rate_limit(name: str, limit: Limit):
+    """Build a dependency that throttles a route per client address."""
+
+    def dependency(request: Request) -> None:
+        limiter.check(f"{name}:{client_key(request)}", limit)
+
+    return dependency

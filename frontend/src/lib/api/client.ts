@@ -11,6 +11,7 @@ const BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api'
 
 const TOKEN_KEY = 'cc_access_token'
+const REFRESH_KEY = 'cc_refresh_token'
 
 export interface ApiErrorBody {
   error?: { code?: string; message?: string }
@@ -61,6 +62,74 @@ export function setToken(token: string | null): void {
   }
 }
 
+export function getRefreshToken(): string | null {
+  try {
+    return localStorage.getItem(REFRESH_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setRefreshToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(REFRESH_KEY, token)
+    else localStorage.removeItem(REFRESH_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Clear the whole session. Called when a refresh fails for good. */
+export function clearSession(): void {
+  setToken(null)
+  setRefreshToken(null)
+}
+
+// --- refresh ---------------------------------------------------------------
+// Access tokens are short-lived. Without this the app would sign a child out
+// roughly hourly, mid-drawing. On a 401 we try ONE refresh and replay the
+// original request; if that fails the session is genuinely over.
+//
+// The in-flight promise is shared so a burst of concurrent 401s triggers one
+// refresh, not one per request.
+
+let refreshInFlight: Promise<boolean> | null = null
+
+async function refreshSession(): Promise<boolean> {
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) return false
+
+  try {
+    const res = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+    if (!res.ok) {
+      clearSession()
+      return false
+    }
+    const session = (await res.json()) as {
+      access_token: string
+      refresh_token?: string | null
+    }
+    setToken(session.access_token)
+    if (session.refresh_token) setRefreshToken(session.refresh_token)
+    return true
+  } catch {
+    // A network blip is not a dead session — keep the tokens and let the
+    // caller surface the failure.
+    return false
+  }
+}
+
+function refreshOnce(): Promise<boolean> {
+  refreshInFlight ??= refreshSession().finally(() => {
+    refreshInFlight = null
+  })
+  return refreshInFlight
+}
+
 // --- request ----------------------------------------------------------------
 
 interface RequestOptions {
@@ -84,7 +153,11 @@ async function toApiError(response: Response): Promise<ApiError> {
   return new ApiError(message, response.status, code)
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+  isRetry = false,
+): Promise<T> {
   const { method = 'GET', body, auth = true, signal } = options
 
   const headers: Record<string, string> = {}
@@ -110,6 +183,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       0,
       'network_error',
     )
+  }
+
+  // One refresh attempt, then replay. `isRetry` stops an infinite loop when
+  // the refreshed token is itself rejected.
+  if (response.status === 401 && auth && !isRetry && getRefreshToken()) {
+    if (await refreshOnce()) return request<T>(path, options, true)
   }
 
   if (response.status === 204) return undefined as T

@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -15,6 +15,7 @@ import ColouringLab from './pages/ColouringLab';
 import Shop from './pages/Shop';
 import Library from './pages/Library';
 import AppLayout from './components/AppLayout';
+import ProtectedRoute from './components/ProtextedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -50,12 +51,18 @@ const AuthenticatedApp = () => {
       {/* Add your page Route elements here */}
       <Route path="/" element={<Splash />} />
       <Route element={<AppLayout />}>
+        {/* Local-only pages: no API call, so they work signed out. */}
         <Route path="/home" element={<Home />} />
         <Route path="/purchase" element={<Purchase />} />
-        <Route path="/kitchen" element={<Kitchen />} />
         <Route path="/colouring-lab" element={<ColouringLab />} />
         <Route path="/shop" element={<Shop />} />
-        <Route path="/library" element={<Library />} />
+
+        {/* API-backed pages. Without this guard a signed-out visitor gets a
+            401 and an empty screen instead of being asked to log in. */}
+        <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+          <Route path="/kitchen" element={<Kitchen />} />
+          <Route path="/library" element={<Library />} />
+        </Route>
       </Route>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />

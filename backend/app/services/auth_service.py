@@ -93,6 +93,24 @@ class AuthService:
             user=UserOut(id=res.user.id, email=res.user.email),
         )
 
+    def refresh_session(self, refresh_token: str) -> SessionOut:
+        try:
+            res = self._auth().refresh_session(refresh_token)
+        except ServiceUnavailableError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # A spent or revoked refresh token means "sign in again", not an
+            # error worth explaining in detail.
+            raise AuthError("Your session has expired. Please sign in again.") from exc
+
+        if not res.session or not res.user:
+            raise AuthError("Your session has expired. Please sign in again.")
+        return SessionOut(
+            access_token=res.session.access_token,
+            refresh_token=res.session.refresh_token,
+            user=UserOut(id=res.user.id, email=res.user.email),
+        )
+
     def get_user(self, access_token: str) -> UserOut:
         try:
             res = self._auth().get_user(access_token)
