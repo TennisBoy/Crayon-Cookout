@@ -300,8 +300,14 @@ smallest change that unblocks verification.
 - `Library.jsx`'s scan handler already catches and shows a failure result.
 - `AuthContext` treats a stubbed `getCurrentUser` as signed-out rather than as
   an error, so the app renders normally.
-- `designs.js` guards `JSON.parse` and `localStorage` access in `try/catch` and
-  falls back to an empty list, matching the defensive style of `premium.js`.
+- `designs.js` guards **reads** — `JSON.parse` and a missing key — in `try/catch`
+  and falls back to an empty list, matching the defensive style of `premium.js`.
+- `designs.js` **writes propagate**. A failed write (quota exceeded, storage
+  unavailable) rejects rather than resolving as if it succeeded, so
+  `Kitchen.jsx`'s existing `catch` can show its "Could not save design" alert.
+  `premium.js` may swallow write failures because it stores boolean flags that
+  can be re-derived; a saved design is user-created content that cannot, and a
+  silent failure loses it with no feedback.
 
 ## Verification
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { create as createDesign } from '@/lib/adapters/designs';
 import { FREE_COLORS, LOCKED_COLORS, SHAPES, hasKitchenAccess } from '@/lib/premium';
 import CrayonShape from '@/components/CrayonShape';
 import { Lock, Droplet, Pencil, Eraser, Save, Trash2, Brush } from 'lucide-react';
@@ -115,7 +115,7 @@ export default function Kitchen() {
     if (segments.length === 0) return;
     setSaving(true);
     try {
-      await base44.entities.CrayonDesign.create({
+      await createDesign({
         name: designName || 'My Crayon Design',
         colors: segments.map(s => s.color),
         heights: segments.map(s => s.height),
