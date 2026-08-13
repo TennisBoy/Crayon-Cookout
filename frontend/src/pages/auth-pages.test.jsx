@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -6,6 +6,10 @@ import Login from '@/pages/Login'
 import ForgotPassword from '@/pages/ForgotPassword'
 
 const wrap = (ui) => render(<MemoryRouter>{ui}</MemoryRouter>)
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('Login', () => {
   it('renders without crashing now that Input exists', () => {
@@ -20,14 +24,43 @@ describe('Login', () => {
     expect(screen.getByText('or')).toBeInTheDocument()
   })
 
-  it('surfaces the stub message in the error banner instead of throwing', async () => {
+  it("surfaces the server's error message in the banner instead of throwing", async () => {
+    // The API answers 401 with its own wording; the page must show that
+    // rather than a generic string or an unhandled rejection.
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'unauthenticated',
+            message: 'That email or password is not correct.',
+          },
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
     const user = userEvent.setup()
     wrap(<Login />)
     await user.type(screen.getByLabelText('Email'), 'a@b.c')
     await user.type(screen.getByLabelText('Password'), 'secret')
     await user.click(screen.getByRole('button', { name: 'Log in' }))
     await waitFor(() => {
-      expect(screen.getByText(/needs a backend/)).toBeInTheDocument()
+      expect(
+        screen.getByText('That email or password is not correct.'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('reports a reachability problem when the network fails', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'))
+
+    const user = userEvent.setup()
+    wrap(<Login />)
+    await user.type(screen.getByLabelText('Email'), 'a@b.c')
+    await user.type(screen.getByLabelText('Password'), 'secret')
+    await user.click(screen.getByRole('button', { name: 'Log in' }))
+    await waitFor(() => {
+      expect(screen.getByText(/Could not reach the server/)).toBeInTheDocument()
     })
   })
 })

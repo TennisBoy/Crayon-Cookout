@@ -24,9 +24,8 @@ Do not trust the PR body. Check out the branch and run all three:
 
 ```bash
 git checkout <headRefName>
-npm test
-npm run build
-npm run lint
+cd frontend && npm test && npm run build && npm run lint && cd ..
+cd backend  && .venv/bin/pytest && cd ..
 ```
 
 Report the real numbers. If any gate fails, **stop** — report the failure and do
@@ -81,6 +80,6 @@ Report:
 
 - The merge commit on `master`
 - That local and remote branches are gone
-- The gate results on `master` after the merge — re-run `npm test` to be sure the
+- The gate results on `master` after the merge — re-run both suites to be sure the
   merged result is green, not just the branch
 - What is now worth doing next, if anything obvious came out of the review

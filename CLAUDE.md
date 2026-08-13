@@ -1,19 +1,29 @@
 # Crayon Cookout
 
-Kids' crayon-design PWA. Vite + React 18 + React Router 6 + Tailwind 3.
+Kids' crayon-design app. React SPA (Vite) + FastAPI + Supabase, deployed by
+Docker Compose on a single VM behind a Cloudflare Tunnel.
+
+**Monorepo**: the SPA lives in `frontend/`, the API in `backend/`. Run npm
+commands from `frontend/`, python commands from `backend/`.
 
 ## Commands
 
 ```bash
-npm install
-npm run dev      # Vite dev server
-npm run build    # production build
-npm test         # vitest run (106 tests)
-npm run lint     # eslint — must exit 0
+cd frontend && npm install && npm run dev    # SPA on :5173
+cd frontend && npm test                      # 89 tests
+cd frontend && npm run build                 # production bundle
+cd frontend && npm run lint                  # must exit 0
+
+cd backend && python -m venv .venv
+cd backend && .venv/bin/pip install -r requirements-dev.txt
+cd backend && .venv/bin/uvicorn app.main:app --reload   # API on :8000
+cd backend && pytest                         # 37 tests
+
+docker compose up -d --build                 # whole stack
 ```
 
-All three of build / test / lint are expected to pass. Treat any of them failing
-as a regression, not as background noise.
+All gates — frontend tests, build, lint, backend tests — are expected to pass.
+Treat any failure as a regression, not background noise.
 
 ## Workflow
 
@@ -23,36 +33,47 @@ as a regression, not as background noise.
 ## Architecture
 
 ```
-src/
+frontend/src/
   pages/         route components (12) — routed in App.jsx
   components/    app components; components/ui/ = 7 hand-written primitives
-  lib/adapters/  THE BACKEND SEAM — nothing else talks to a backend
+  lib/api/       client.ts — THE ONLY PLACE THAT CALLS fetch
+  lib/adapters/  THE BACKEND SEAM — auth · designs · vision · consent
   lib/           AuthContext, premium.js, utils.js (cn)
   test/          setup.js, routes.test.jsx, no-linkage.test.js
+backend/app/
+  api/routes/    HTTP layer — no business logic
+  services/      business rules — raise AppError subclasses
+  repositories/  persistence — the only modules that know about Postgres
+  schemas/       pydantic request/response models
+supabase/        schema.sql (idempotent) · seed.sql (dev only)
+scripts/         setup-vm.sh · install-docker.sh · deploy.sh
 ```
+
+Layering is one-directional: routes → services → repositories. A route never
+touches a repository, and a repository never raises HTTP concerns.
 
 ## The adapter seam
 
-`src/lib/adapters/` is the only place that reaches for a backend. The app was
-de-platformed off a hosted low-code provider; these four modules replaced it.
+`frontend/src/lib/adapters/` is the only place that reaches for a backend, and
+`lib/api/client.ts` is the only place that calls `fetch`. Pages call adapters;
+adapters call the client. Nothing skips a layer.
 
 | Adapter | State |
 |---|---|
-| `designs.js` | **Works** — localStorage under `cc_designs` |
-| `auth.js` | **Stub** — all 11 methods throw `NotImplementedError` |
-| `vision.js` | **Stub** — collectible photo verification |
-| `consent.js` | **Stub** — OAuth/MCP consent |
+| `designs.ts` | **Live** — `/api/designs` |
+| `auth.ts` | **Live** — `/api/auth/*`, except `signInWithProvider` |
+| `vision.ts` | **Live** — `/api/vision/verify-crayon` |
+| `consent.js` | **Stub** — no backend equivalent for the MCP consent flow |
 
-The stubs throw *on purpose*. Wiring a real backend means editing these files and
-nothing else. Never make a stub return a fake success value — a stub that
-silently answers is worse than one that fails loudly. `verifyCrayonPhoto` is the
-anti-cheat for collectibles, so it must run server-side; never ship an API key to
-the browser.
+Never make a stub return a fake success value — a stub that silently answers is
+worse than one that fails loudly. `verifyCrayonPhoto` is the anti-cheat for
+collectibles, so it runs server-side; never ship an API key to the browser.
 
 ## Client state: the `cc_*` contract
 
-All persistence is localStorage under `cc_*`: `cc_designs`, `cc_collected`,
-`cc_trial_expiry`, and `cc_<feature>` flags (see `lib/premium.js`).
+Designs now live in Postgres. What remains local is `cc_collected`,
+`cc_trial_expiry`, `cc_<feature>` premium flags (see `lib/premium.js`), and
+`cc_access_token` (the session token, managed by `lib/api/client.ts`).
 
 Two custom window events drive cross-component updates — dispatch them after
 writing or the UI won't react:
@@ -61,9 +82,8 @@ writing or the UI won't react:
 - `cc-collected-change` — after a collectibles write
 
 Reads fall back to empty/false on corrupt data. **Writes propagate**: a failed
-`designs` write rejects so Kitchen's "Could not save design" alert can fire.
-Don't swallow write errors — a saved design is user-created content that can't be
-re-derived.
+save rejects so Kitchen's "Could not save design" alert can fire. Don't swallow
+write errors — a saved design is user-created content that can't be re-derived.
 
 ## UI parity — read before touching components/ui/
 
@@ -103,14 +123,28 @@ genuinely hard (focus management, virtualisation, accessible menus).
 - **`ProtextedRoute.jsx`** — the typo is pre-existing and referenced by imports.
   Renaming is churn; leave it.
 - **`AuthContext` treats a rejecting `getCurrentUser()` as signed out**, not an
-  error. Required while auth is stubbed — "fixing" it makes `App.jsx` render its
-  spinner forever.
+  error. "Fixing" it makes `App.jsx` render its spinner forever when the API is
+  unreachable or the user simply has no session.
 - **`ForgotPassword` always shows success**, even on failure. Anti-enumeration:
   it must not reveal whether an account exists. Do not add an error banner.
 - **`OAuthConsent`'s `setReconnect` is intentionally unused**, with an
   eslint-disable. Deleting it cascades into deleting live UI.
 - **`AdBar.jsx` and `ColouringLab.jsx` are placeholders** — the originals were
   missing or corrupt. Real implementations still needed.
+- **`VITE_API_BASE_URL` is inlined at BUILD time**, not read at runtime.
+  Changing it needs `docker compose build frontend`; a restart does nothing.
+- **The Supabase service role key bypasses row-level security.** Backend only.
+  If it ever lands in a `VITE_*` variable it is published to every visitor —
+  rotate it immediately.
+- **`@vitejs/plugin-react` must match the Vite major.** v4 does not support
+  Vite 8; a mismatch only surfaces on a clean `npm ci`, which is what the
+  Docker build runs.
+- **Backend layering is one-directional.** Routes never touch repositories.
+  Services raise `AppError` subclasses; `core/errors.py` maps them to HTTP, so
+  routes never build an error response by hand.
+- **Upstream error text never reaches the client.** Supabase distinguishes
+  "no such user" from "wrong password"; both surface as one generic message.
+  Keep it that way — the difference is an account-enumeration oracle.
 
 ## Testing
 
