@@ -61,8 +61,8 @@ return to step 3.
 
 ```bash
 gh pr merge <number> --squash --delete-branch
-git checkout master
-git pull --ff-only origin master
+git checkout main
+git pull --ff-only origin main
 git branch -d <headRefName>        # plain -d; never force-delete
 ```
 
@@ -78,8 +78,8 @@ something genuinely did not land.
 
 Report:
 
-- The merge commit on `master`
+- The merge commit on `main`
 - That local and remote branches are gone
-- The gate results on `master` after the merge — re-run both suites to be sure the
+- The gate results on `main` after the merge — re-run both suites to be sure the
   merged result is green, not just the branch
 - What is now worth doing next, if anything obvious came out of the review
