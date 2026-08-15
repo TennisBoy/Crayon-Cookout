@@ -28,6 +28,23 @@ docker compose up -d --build                 # whole stack
 All gates — frontend tests, build, lint, backend tests — are expected to pass.
 Treat any failure as a regression, not background noise.
 
+## Deployment is IN PROGRESS — read this first
+
+The owner is part-way through first-time setup. **`docs/SETUP.md` holds the
+ordered walkthrough and a progress box saying exactly which step is next.**
+Read it before answering any "what do I do now" question, and update the
+progress box as steps complete.
+
+Nothing has ever run against the real Supabase project or a VM yet, so the
+integration is unexercised: the test suites fake the repositories so CI needs
+no secrets, which means a wrong column name or an RLS policy that rejects the
+service role would not have been caught.
+
+**Never ask for, accept, or echo a secret in conversation.** Credentials belong
+in `.env` on the VM. To check whether something is configured, ask for a
+command that prints a boolean:
+`curl -s localhost:8000/api/health/ready`.
+
 ## Workflow
 
 - `/start-work` — branch, implement, verify, commit, push, open a PR

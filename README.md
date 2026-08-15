@@ -95,6 +95,7 @@ the frontend mocks `fetch`. CI never needs a secret.
 
 | Guide | Covers |
 |---|---|
+| **[docs/SETUP.md](docs/SETUP.md)** | **Start here — ordered first-time setup, with progress** |
 | [docs/supabase-setup.md](docs/supabase-setup.md) | Creating the project, schema, keys, auth |
 | [docs/deployment.md](docs/deployment.md) | Bare VM to running app; updates and rollback |
 | [docs/cloudflare-tunnel.md](docs/cloudflare-tunnel.md) | Tunnel install, ingress rules, verification |
