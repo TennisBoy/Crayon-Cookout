@@ -29,13 +29,13 @@ delivers something real over a sprawling refactor.
 
 ```bash
 git status --short          # must be clean — if not, STOP and report
-git checkout master
-git pull --ff-only origin master
+git checkout main
+git pull --ff-only origin main
 git checkout -b <type>/<short-kebab-description>
 ```
 
 Use `feat/`, `fix/`, `chore/`, `test/` or `docs/` as the type. Never work
-directly on `master`.
+directly on `main`.
 
 ## 3. Implement
 
