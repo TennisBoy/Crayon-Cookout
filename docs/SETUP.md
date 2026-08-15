@@ -9,17 +9,17 @@ knows where you are without asking you to re-explain.
 
 ## Where you are right now
 
-_Last updated: 2026-08-14_
+_Last updated: 2026-08-15_
 
 | Step | State |
 |---|---|
 | 1. Cloudflare domain | ✅ **Done** — `crayoncookout.com` is on Cloudflare |
 | 2a. Supabase project | ✅ **Done** — project ref `jhwhkidhazzyztyuijhl` |
-| 2b. Run `schema.sql` | ⏳ **NEXT — start here** |
-| 2c. Collect keys | ⬜ Not started |
+| 2b. Run `schema.sql` | ✅ **Done** — 2026-08-15, "Success. No rows returned" |
+| 2c. Collect keys | ⏳ **NEXT — start here** |
 | 2d. Supabase auth config | ⬜ Not started |
-| 3. Oracle Cloud VM | ⬜ **No account yet** — start the signup early, see note |
-| 4. VM setup script | ⬜ Not started |
+| 3. Oracle Cloud VM | ✅ **Done** — instance running, SSH reachable on port 22 |
+| 4. VM setup script | ⬜ Ready to run — needs 2c first for the `.env` values |
 | 5. Fill in `.env` | ⬜ Not started |
 | 6. Deploy | ⬜ Not started |
 | 7. Cloudflare Tunnel | ⬜ Not started |
@@ -75,7 +75,10 @@ SUPABASE_URL=https://jhwhkidhazzyztyuijhl.supabase.co
 
 That URL is not a secret — it is baked into any Supabase client.
 
-### 2b. Run the schema ⏳ START HERE
+### 2b. Run the schema ✅
+
+Ran 2026-08-15 — *"Success. No rows returned"*. Kept here because the file is
+idempotent and re-running it is the fix for a schema that drifted.
 
 The database is empty apart from Supabase's own auth tables. The app needs two
 tables of its own.
@@ -93,7 +96,7 @@ The file is idempotent. If unsure whether it ran, run it again.
 **If it fails:** the likeliest cause is being in the wrong project. Check the
 project switcher top-left.
 
-### 2c. Collect the keys ⬜
+### 2c. Collect the keys ⏳ START HERE
 
 **Project Settings → API**:
 
@@ -134,8 +137,14 @@ This is the step most likely to stall everything else.
 - Ubuntu 22.04+
 - Ampere/arm64 free tier is the target; amd64 works unchanged
 - Save the SSH key, note the public IP
-- **Do not open any inbound port** in the VCN security list. The tunnel dials
-  outbound; nothing needs to be reachable from the internet.
+- **Keep the default SSH rule** (TCP 22 from `0.0.0.0/0`) — you need it for
+  step 4, and the default security list already has it.
+- **Do not open 80 or 443**, or any other inbound port. The tunnel dials
+  outbound; the app itself needs nothing reachable from the internet.
+- The subnet must be **public**, and its route table needs `0.0.0.0/0` → an
+  **Internet Gateway**. A VCN built by hand instead of with the "VCN with
+  Internet Connectivity" wizard has neither, which yields an instance with a
+  public IP that routes nowhere.
 
 ## 4. Prepare the VM ⬜
 
@@ -241,6 +250,12 @@ together, and it is where problems are most likely to surface.**
   `docker compose build frontend`; a restart will not pick it up.
 - **Supabase built-in SMTP is rate-limited.** Fine for you, not for users.
 - **Oracle ARM capacity.** See step 3.
+- **The VM never answers `ping`.** OCI's default security list permits ICMP
+  types 3/4 only, not echo. A timed-out ping says nothing about the instance's
+  health — test reachability with a TCP probe to port 22 instead
+  (`Test-NetConnection <ip> -Port 22`). Check the public IP on the instance page
+  before concluding anything is broken; an ephemeral IP changes across a
+  stop/start, and one wrong digit looks exactly like a firewall problem.
 - **The `/api` ingress rule must precede the catch-all.** Otherwise every API
   call returns the SPA's HTML.
 
