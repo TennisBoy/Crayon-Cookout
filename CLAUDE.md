@@ -19,7 +19,7 @@ cd frontend && npm run verify                # all four, in order
 cd backend && python -m venv .venv
 cd backend && .venv/bin/pip install -r requirements-dev.txt
 cd backend && .venv/bin/uvicorn app.main:app --reload   # API on :8000
-cd backend && pytest                         # 58 tests
+cd backend && pytest                         # 73 tests
 cd backend && ruff check .                   # must pass
 
 docker compose up -d --build                 # whole stack
@@ -173,9 +173,24 @@ genuinely hard (focus management, virtualisation, accessible menus).
   missing or corrupt. Real implementations still needed.
 - **`VITE_API_BASE_URL` is inlined at BUILD time**, not read at runtime.
   Changing it needs `docker compose build frontend`; a restart does nothing.
-- **The Supabase service role key bypasses row-level security.** Backend only.
-  If it ever lands in a `VITE_*` variable it is published to every visitor —
-  rotate it immediately.
+- **Data and auth use different credentials, and both are required.**
+  `DATABASE_URL` is direct PostgreSQL for `crayon_designs` and `collectibles`;
+  the Supabase key is for GoTrue — register, OTP, login, reset, refresh — which
+  has no SQL equivalent. `/api/health/ready` reports them separately, so
+  `"database": true, "auth": false` is a real state and means logins fail while
+  saved designs work.
+- **Use Supabase's session-pooler DSN, not the direct `:5432` host.** The
+  direct host is IPv6-only on newer projects and will not resolve from an IPv4
+  VM. The failure looks like a hang, not a config error.
+- **Repository SQL is composed with `psycopg.sql`, never f-strings.** `sort` and
+  the PATCH keys come from the request; identifiers cannot be bound parameters,
+  so they are whitelisted (`SORTABLE`, `UPDATABLE`) *and* quoted. Values are
+  always bound. `tests/test_repositories.py` covers exactly this.
+- **The Supabase service role key bypasses row-level security, and so does the
+  database connection.** Both connect as an owner-level role, so the `user_id`
+  scoping in every repository method is load-bearing, not defence in depth.
+  Backend only. If either lands in a `VITE_*` variable it is published to every
+  visitor — rotate it immediately.
 - **`@vitejs/plugin-react` must match the Vite major.** v4 does not support
   Vite 8; a mismatch only surfaces on a clean `npm ci`, which is what the
   Docker build runs.
