@@ -9,21 +9,29 @@ knows where you are without asking you to re-explain.
 
 ## Where you are right now
 
-_Last updated: 2026-08-15_
+_Last updated: 2026-08-19_
 
 | Step | State |
 |---|---|
 | 1. Cloudflare domain | ✅ **Done** — `crayoncookout.com` is on Cloudflare |
 | 2a. Supabase project | ✅ **Done** — project ref `jhwhkidhazzyztyuijhl` |
 | 2b. Run `schema.sql` | ✅ **Done** — 2026-08-15, "Success. No rows returned" |
-| 2c. Collect keys | ⏳ **NEXT — start here** |
-| 2d. Supabase auth config | ⬜ Not started |
+| 2c. Collect credentials | ⚠️ **Incomplete** — the key collected is the new `sb_secret_` format, which `supabase==2.11.0` rejects. Needs the **legacy `service_role` JWT**, plus the **session-pooler `DATABASE_URL`** |
+| 2d. Supabase auth config | ✅ **Done** |
 | 3. Oracle Cloud VM | ✅ **Done** — instance running, SSH reachable on port 22 |
-| 4. VM setup script | ⬜ Ready to run — needs 2c first for the `.env` values |
-| 5. Fill in `.env` | ⬜ Not started |
-| 6. Deploy | ⬜ Not started |
-| 7. Cloudflare Tunnel | ⬜ Not started |
+| 4. VM prepared | ✅ **Done** — Docker 28.1.1, ufw, 4 GB swap |
+| 5. Fill in `.env` | ⏳ **NEXT** — `DATABASE_URL` and the legacy JWT are both outstanding |
+| 6. Deploy | ✅ **Done** — stack healthy, but needs a rebuild to pick up `psycopg` |
+| 7. Cloudflare Tunnel | ⚠️ **Partial** — tunnel created, `config.yml` validates. DNS route and service install still pending |
 | 8. End-to-end verification | ⬜ Not started |
+
+### The VM layout changed
+
+The deployment root is now **`/home/ubuntu/crayon`**, holding `docker-compose.yml`
+and `.env` and no source checkout: images are built in CI and pulled by tag.
+Steps 4–6 below still describe the original clone-and-build-on-the-VM flow,
+which works and remains the fallback when a registry is unreachable. See
+[`INFRASTRUCTURE.md`](../INFRASTRUCTURE.md) for what is actually deployed.
 
 ### ⚠️ Outstanding action, unverified
 
@@ -33,8 +41,11 @@ it has been:
 
 > Supabase dashboard → **Project Settings → Database → Reset database password**
 
-Nothing in this project uses that password — the backend authenticates with an
-API key — so rotating it breaks nothing.
+**This is no longer free.** The backend now reaches `crayon_designs` and
+`collectibles` over direct SQL, so the password is embedded in `DATABASE_URL`
+in `.env` on the VM. Rotate it *first*, then copy the new connection string
+into `.env` and `docker compose up -d`. Rotating without updating `.env` takes
+the app's data layer down (auth keeps working — different credential).
 
 ### Decisions already made
 
@@ -96,21 +107,28 @@ The file is idempotent. If unsure whether it ran, run it again.
 **If it fails:** the likeliest cause is being in the wrong project. Check the
 project switcher top-left.
 
-### 2c. Collect the keys ⏳ START HERE
+### 2c. Collect the credentials ⚠️ INCOMPLETE
 
-**Project Settings → API**:
+Both live in the Supabase dashboard:
 
-| Dashboard label | `.env` variable | Sensitivity |
+| Where | `.env` variable | Sensitivity |
 |---|---|---|
-| Project URL | `SUPABASE_URL` | Not secret |
-| `service_role` secret | `SUPABASE_SERVICE_ROLE_KEY` | **Extremely secret** |
-| `anon` public | `SUPABASE_ANON_KEY` | Not secret, currently unused |
+| **Connect → Session pooler** | `DATABASE_URL` | **Secret — embeds the DB password** |
+| Settings → API → Project URL | `SUPABASE_URL` | Not secret |
+| Settings → API → `service_role` | `SUPABASE_SERVICE_ROLE_KEY` | **Extremely secret** |
+| Settings → API → `anon` public | `SUPABASE_ANON_KEY` | Not secret, currently unused |
+
+Two credentials, not one: `DATABASE_URL` serves designs and collectibles over
+SQL, the `service_role` key serves auth. Take the **session pooler** DSN, not
+the direct `:5432` host — that one is IPv6-only and hangs from this VM. Take the
+**legacy** `service_role` JWT (`eyJ…`); `supabase==2.11.0` rejects the newer
+`sb_secret_…` format outright.
 
 Write them straight into `.env` on the VM at step 5. Do not put them in a chat,
 a commit, or any `VITE_*` variable — Vite inlines `VITE_*` into the public
 bundle.
 
-### 2d. Configure auth ⬜
+### 2d. Configure auth ✅
 
 **Authentication → Providers → Email**:
 - Enable email provider
@@ -127,7 +145,7 @@ Without that redirect URL, password-reset emails refuse to link back.
 > for testing only. Registration will work for you and then quietly stop for
 > everyone else. Configure your own SMTP under **Settings → Auth → SMTP**.
 
-## 3. Oracle Cloud — create the VM ⬜
+## 3. Oracle Cloud — create the VM ✅
 
 **Start the signup early.** Free-tier ARM (Ampere) capacity is genuinely
 scarce — "Out of host capacity" on instance creation is common and can need
@@ -146,7 +164,7 @@ This is the step most likely to stall everything else.
   Internet Connectivity" wizard has neither, which yields an instance with a
   public IP that routes nowhere.
 
-## 4. Prepare the VM ⬜
+## 4. Prepare the VM ✅
 
 ```bash
 ssh ubuntu@<vm-ip>
@@ -158,7 +176,7 @@ sudo ./scripts/setup-vm.sh
 OS patches, Docker, firewall (deny inbound except SSH), swap on low-memory
 instances, and it creates `.env` from the template.
 
-## 5. Fill in `.env` ⬜
+## 5. Fill in `.env` ⏳ START HERE
 
 ```bash
 nano .env
@@ -167,15 +185,29 @@ nano .env
 Minimum for a working app:
 
 ```
+DATABASE_URL=<session-pooler DSN from Supabase → Connect>
 SUPABASE_URL=https://jhwhkidhazzyztyuijhl.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<the service_role secret from 2c>
+SUPABASE_SERVICE_ROLE_KEY=<the legacy service_role JWT from 2c>
 CORS_ORIGINS=https://crayoncookout.com
 ```
+
+Both credentials are needed and they cover different things: `DATABASE_URL`
+serves designs and collectibles over SQL, the `service_role` key serves auth.
+`/api/health/ready` reports them separately.
+
+Two traps, both of which look like something else:
+
+- Take the **session pooler** DSN from the dashboard's **Connect** dialog, not
+  the direct `:5432` host. The direct host is IPv6-only on newer projects and
+  hangs rather than erroring from an IPv4 VM.
+- The `service_role` key must be the **legacy JWT** (starts `eyJ`). The newer
+  `sb_secret_…` format is rejected by `supabase==2.11.0` before it makes any
+  request, so it presents as a client bug rather than a bad key.
 
 `VITE_API_BASE_URL` stays at its default `/api` — same-origin, which is what
 the apex-domain routing expects.
 
-## 6. Deploy ⬜
+## 6. Deploy ✅
 
 ```bash
 ./scripts/deploy.sh
@@ -188,7 +220,7 @@ are *correct* — step 8 proves that.
 `deploy.sh` will not report success unless every container reports healthy, and
 prints the rollback command if it fails.
 
-## 7. Cloudflare Tunnel ⬜
+## 7. Cloudflare Tunnel ⚠️ PARTIAL
 
 ```bash
 curl -fsSLo cloudflared.deb \
@@ -224,7 +256,7 @@ sudo systemctl enable --now cloudflared
 
 Full detail and troubleshooting: [cloudflare-tunnel.md](cloudflare-tunnel.md).
 
-## 8. Verify end to end ⬜
+## 8. Verify end to end ⬜ NOT STARTED
 
 ```bash
 curl -s https://crayoncookout.com/api/health
