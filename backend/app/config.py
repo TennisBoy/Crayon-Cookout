@@ -24,9 +24,20 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_prefix: str = "/api"
 
+    # --- Database ----------------------------------------------------------
+    # Direct PostgreSQL. Designs and collectibles are plain SQL; the repository
+    # layer is the only thing that knows this exists.
+    #
+    # Use Supabase's *pooler* DSN, not the direct :5432 host — the latter is
+    # IPv6-only on newer projects and will not resolve from an IPv4 VM.
+    database_url: str = Field(default="", description="postgresql://…?sslmode=require")
+    database_pool_max: int = 5
+
     # --- Supabase ----------------------------------------------------------
-    # The service role key bypasses row-level security. It must NEVER reach the
-    # browser; it lives only in the backend container's environment.
+    # Still required for AUTH — register, OTP, login, password reset and token
+    # refresh are GoTrue calls, and GoTrue has no SQL equivalent. The service
+    # role key bypasses row-level security. It must NEVER reach the browser; it
+    # lives only in the backend container's environment.
     supabase_url: str = Field(default="", description="https://<ref>.supabase.co")
     supabase_service_role_key: str = Field(default="")
     supabase_anon_key: str = Field(default="")
@@ -60,7 +71,12 @@ class Settings(BaseSettings):
         return self.environment == "production"
 
     @property
+    def database_configured(self) -> bool:
+        return bool(self.database_url)
+
+    @property
     def supabase_configured(self) -> bool:
+        """Whether AUTH is configured. Data lives behind `database_configured`."""
         return bool(self.supabase_url and self.supabase_service_role_key)
 
     @property
