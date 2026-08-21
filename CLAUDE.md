@@ -58,7 +58,7 @@ frontend/src/
   components/    app components; components/ui/ = 7 hand-written primitives
   lib/api/       client.ts — THE ONLY PLACE THAT CALLS fetch
   lib/adapters/  THE BACKEND SEAM — auth · designs · vision · consent
-  lib/           AuthContext, premium.js, utils.js (cn)
+  lib/           AuthContext, premium.js, cart.js, catalog.js, utils.js (cn)
   test/          setup.js, routes.test.jsx, no-linkage.test.js
 backend/app/
   api/routes/    HTTP layer — no business logic
@@ -100,8 +100,17 @@ collectibles, so it runs server-side; never ship an API key to the browser.
 Designs, collectibles and entitlements now live in Postgres. `cc_collected` and
 `cc_entitlements` remain as read-through **caches** so shelves and gated UI paint
 instantly and survive an outage — the server is the source of truth. Still purely
-local: `cc_trial_expiry`, `cc_trial_used`, and `cc_access_token` (the session
-token, managed by `lib/api/client.ts`).
+local: `cc_trial_expiry`, `cc_trial_used`, `cc_cart`, and `cc_access_token` (the
+session token, managed by `lib/api/client.ts`).
+
+**`cc_cart` is a shopping basket, not an entitlement.** It holds physical crayon
+packs the user means to buy — `{ [productId]: quantity }`, keyed by the ids in
+`lib/catalog.js` so renaming a pack cannot orphan a basket. `lib/cart.js` owns
+it; `/purchase` fills it and `/cart` shows it. Nothing about it is server-backed
+and **nothing in it is paid for** — there is no checkout for packs, so a basket
+is a wish list until fulfilment exists. Keep it clear of `premium.js`: one is
+"what I intend to buy", the other is "what I already own", and merging them is
+how a wish becomes an entitlement.
 
 **Purchases are a redirect to Stripe.** `POST /api/billing/checkout` returns a
 hosted Checkout URL; the browser never sees a Stripe key and no card data
@@ -117,15 +126,22 @@ which the trial still writes. There is deliberately **no endpoint that grants**
 an entitlement — a client that could grant its own would make paying optional.
 Grants happen server-to-server in the Stripe webhook.
 
-Two custom window events drive cross-component updates — dispatch them after
+Three custom window events drive cross-component updates — dispatch them after
 writing or the UI won't react:
 
 - `cc-premium-change` — after any premium flag write
 - `cc-collected-change` — after a collectibles write
+- `cc-cart-change` — after a basket write; `/purchase` and `/cart` both edit the
+  same basket, so each mirrors it rather than owning it
 
 Reads fall back to empty/false on corrupt data. **Writes propagate**: a failed
 save rejects so Kitchen's "Could not save design" alert can fire. Don't swallow
 write errors — a saved design is user-created content that can't be re-derived.
+
+The purely local flags are the exception, and the test is whether the user can
+trivially redo the write. `premium.js` and `cart.js` both swallow a failed
+`localStorage` write: tapping "Add to Cart" again costs nothing, whereas a lost
+design is gone. Don't extend that licence to anything the user authored.
 
 ## UI parity — read before touching components/ui/
 

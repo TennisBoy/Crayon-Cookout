@@ -1,126 +1,149 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FlaskConical, Clock, Check, ShoppingCart } from 'lucide-react';
-import {
-  hasFeature,
-  isTrialActive,
-  hasTrialUsed,
-  getTrialDaysLeft,
-  refreshEntitlements,
-} from '@/lib/premium';
+import { Minus, Plus, Trash2, Store } from 'lucide-react';
+import { getCart, setQty, addToCart } from '@/lib/cart';
+import { findProduct } from '@/lib/catalog';
 
 /**
- * What you own.
+ * The crayon packs you mean to buy.
  *
- * Reads the same state the Shop gates on, so the two pages can never disagree:
- * the Kitchen + Colouring pass comes from the server (cc_entitlements), the
- * trial is local and time-limited.
+ * What you already *own* — the Kitchen + Colouring pass and the trial — is the
+ * Shop's job: it badges an owned product and shows a running trial's days left.
+ * Repeating that here would only create a second place for the two to disagree.
  */
 export default function Cart() {
-  const [state, setState] = useState({});
-
-  const refresh = () => setState({
-    kitchen: hasFeature('kitchen'),
-    colouring: hasFeature('colouring'),
-    trialActive: isTrialActive(),
-    trialUsed: hasTrialUsed(),
-    trialDaysLeft: getTrialDaysLeft(),
-  });
+  const [cart, setCart] = useState(getCart);
 
   useEffect(() => {
-    refresh();
-    // Ask the server rather than trusting the cache alone: this page exists to
-    // answer "did my purchase go through?", which is exactly when a stale
-    // cache is most misleading.
-    refreshEntitlements().catch(() => {});
-    const handler = () => refresh();
-    window.addEventListener('cc-premium-change', handler);
-    return () => window.removeEventListener('cc-premium-change', handler);
+    const handler = () => setCart(getCart());
+    window.addEventListener('cc-cart-change', handler);
+    return () => window.removeEventListener('cc-cart-change', handler);
   }, []);
 
-  const fullAccess = state.kitchen && state.colouring;
+  // A basket saved before a pack was withdrawn still holds that pack's id.
+  // Skip those lines rather than rendering a blank row for them.
+  const lines = Object.entries(cart)
+    .map(([id, qty]) => ({ product: findProduct(id), qty }))
+    .filter((line) => line.product);
+
+  const subtotal = lines.reduce((sum, l) => sum + l.product.price * l.qty, 0);
+  const count = lines.reduce((total, l) => total + l.qty, 0);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="text-center mb-6">
         <h1 className="font-display font-bold text-3xl text-purple-700">Your Cart 🛒</h1>
-        <p className="text-gray-500 font-body mt-1">Everything you have unlocked.</p>
+        <p className="text-gray-500 font-body mt-1">
+          {count > 0
+            ? `${count} pack${count !== 1 ? 's' : ''} ready to go.`
+            : 'The crayon packs you want to buy.'}
+        </p>
       </div>
 
-      <div className="space-y-4">
-        <StatusCard
-          icon={FlaskConical}
-          gradient="from-orange-400 to-red-500"
-          title="Full Kitchen + Colouring Access"
-          desc="30 extra colours, colour picker, all mould shapes & premium colouring sheets."
-          live={fullAccess}
-          liveLabel="Active"
-          idleLabel="Not unlocked yet"
-          delay={0.1}
-        />
+      {lines.length === 0 ? (
+        <EmptyCart />
+      ) : (
+        <>
+          <div className="space-y-3">
+            {lines.map(({ product, qty }, i) => (
+              <CartLine key={product.id} product={product} qty={qty} delay={i * 0.05} />
+            ))}
+          </div>
 
-        <StatusCard
-          icon={Clock}
-          gradient="from-green-400 to-emerald-500"
-          title="Free Trial"
-          desc={
-            state.trialActive
-              ? `${state.trialDaysLeft} day${state.trialDaysLeft !== 1 ? 's' : ''} of full access left.`
-              : state.trialUsed
-                ? 'Your trial has already been used.'
-                : 'One month of full Kitchen & Colouring access.'
-          }
-          live={state.trialActive}
-          liveLabel="Active"
-          idleLabel={state.trialUsed ? 'Used' : 'Not started'}
-          delay={0.2}
-        />
-      </div>
+          <div className="mt-6 bg-white rounded-3xl p-5 kid-shadow flex items-center justify-between">
+            <span className="font-display font-bold text-lg text-gray-800">Subtotal</span>
+            <span className="font-display font-bold text-2xl text-green-600">${subtotal.toFixed(2)}</span>
+          </div>
 
-      {!fullAccess && (
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500 font-body mb-3">
-            Want the full set of colours and shapes?
-          </p>
-          <Link
-            to="/shop"
-            className="inline-flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white font-semibold px-5 py-3 rounded-2xl kid-shadow transition-colors"
-          >
-            <ShoppingCart className="w-5 h-5" />
-            Go to the Shop
-          </Link>
-        </div>
+          <div className="text-center mt-6">
+            <p className="text-sm text-gray-500 font-body mb-3">Ask a grown-up before you buy! 💜</p>
+            <Link
+              to="/purchase"
+              className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-5 py-3 rounded-2xl kid-shadow transition-colors"
+            >
+              <Store className="w-5 h-5" />
+              Add more packs
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-function StatusCard({ icon: Icon, gradient, title, desc, live, liveLabel, idleLabel, delay }) {
+function EmptyCart() {
+  return (
+    <motion.div
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className="bg-white rounded-3xl p-8 kid-shadow text-center"
+    >
+      <div className="text-5xl mb-3">🖍️</div>
+      <h2 className="font-display font-bold text-xl text-gray-800">No packs in your cart yet!</h2>
+      <p className="text-sm text-gray-500 font-body mt-1 mb-5">
+        Head to the shop and pick some crayons you love.
+      </p>
+      <Link
+        to="/purchase"
+        className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-5 py-3 rounded-2xl kid-shadow transition-colors"
+      >
+        <Store className="w-5 h-5" />
+        Browse crayon packs
+      </Link>
+    </motion.div>
+  );
+}
+
+function CartLine({ product, qty, delay }) {
   return (
     <motion.div
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ delay }}
-      className="bg-white rounded-3xl p-5 kid-shadow flex flex-col sm:flex-row sm:items-center gap-4"
+      className="bg-white rounded-3xl p-4 kid-shadow flex flex-col sm:flex-row sm:items-center gap-4"
     >
-      <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center flex-shrink-0`}>
-        <Icon className="w-8 h-8 text-white" />
+      <div className="flex items-end justify-center gap-1 h-14 w-20 flex-shrink-0">
+        {product.colors.map((c, j) => (
+          <div key={j} className="w-2.5 rounded-t" style={{ background: c, height: '70%' }} />
+        ))}
       </div>
-      <div className="flex-1">
-        <h2 className="font-display font-bold text-lg text-gray-800">{title}</h2>
-        <p className="text-sm text-gray-500 font-body">{desc}</p>
+
+      <div className="flex-1 text-center sm:text-left">
+        <h2 className="font-display font-bold text-lg text-gray-800">{product.name}</h2>
+        <p className="text-sm text-gray-500 font-body">${product.price.toFixed(2)} each</p>
       </div>
-      {live ? (
-        <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 font-semibold text-sm px-4 py-2 rounded-2xl">
-          <Check className="w-4 h-4" />
-          {liveLabel}
+
+      <div role="group" aria-label={`${product.name} quantity`} className="flex items-center justify-center gap-3">
+        <button
+          onClick={() => setQty(product.id, qty - 1)}
+          aria-label={`Remove one ${product.name}`}
+          className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 transition-colors"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
+        <span className="font-display font-bold text-lg text-gray-700 w-6 text-center">{qty}</span>
+        <button
+          onClick={() => addToCart(product.id)}
+          aria-label={`Add one ${product.name}`}
+          className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center hover:bg-purple-200 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between sm:justify-end gap-3 sm:w-28">
+        <span className="font-display font-bold text-xl text-green-600">
+          ${(product.price * qty).toFixed(2)}
         </span>
-      ) : (
-        <span className="inline-flex items-center bg-gray-100 text-gray-500 font-semibold text-sm px-4 py-2 rounded-2xl">
-          {idleLabel}
-        </span>
-      )}
+        <button
+          onClick={() => setQty(product.id, 0)}
+          aria-label={`Remove ${product.name} from cart`}
+          className="text-gray-300 hover:text-red-500 transition-colors"
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
+      </div>
     </motion.div>
   );
 }
