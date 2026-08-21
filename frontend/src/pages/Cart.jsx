@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Minus, Plus, Trash2, Store, FlaskConical, Clock, Check } from 'lucide-react';
+import { Minus, Plus, Trash2, Store, FlaskConical, Clock, Check, PackageCheck } from 'lucide-react';
+import { startPreorder } from '@/lib/adapters/billing';
+import ParentGate from '@/components/ParentGate';
 import { getCart, setQty, addToCart } from '@/lib/cart';
 import { findProduct } from '@/lib/catalog';
 import {
@@ -28,6 +30,9 @@ import {
 export default function Cart() {
   const [cart, setCart] = useState(getCart);
   const [owned, setOwned] = useState(readOwned);
+  const [gateOpen, setGateOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const handler = () => setCart(getCart());
@@ -79,20 +84,58 @@ export default function Cart() {
             <span className="font-display font-bold text-2xl text-green-600">${subtotal.toFixed(2)}</span>
           </div>
 
+          {error && (
+            <div role="alert" className="mt-4 bg-red-50 border-2 border-red-200 rounded-2xl p-4">
+              <p className="text-sm text-red-600 font-body">{error}</p>
+            </div>
+          )}
+
+          <div className="mt-6 bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
+            {/* Saying this BEFORE the card is asked for is the whole basis on
+                which keeping a card on file is fair. */}
+            <p className="text-sm text-blue-800 font-body">
+              <b>You won't be charged today.</b> We'll take{' '}
+              <b>${subtotal.toFixed(2)}</b> when your crayons ship, on or before{' '}
+              <b>8 September</b>. Cancel any time before then.
+            </p>
+          </div>
+
           <div className="text-center mt-6">
-            <p className="text-sm text-gray-500 font-body mb-3">Ask a grown-up before you buy! 💜</p>
-            <Link
-              to="/purchase"
-              className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-5 py-3 rounded-2xl kid-shadow transition-colors"
+            <p className="text-sm text-gray-500 font-body mb-3">Ask a grown-up before you pre-order! 💜</p>
+            <button
+              type="button"
+              onClick={() => { setError(null); setGateOpen(true); }}
+              disabled={busy}
+              className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-semibold px-6 py-3 rounded-2xl kid-shadow transition-colors"
             >
-              <Store className="w-5 h-5" />
-              Add more packs
-            </Link>
+              <PackageCheck className="w-5 h-5" />
+              {busy ? 'Opening…' : 'Pre-order these packs'}
+            </button>
+            <div className="mt-3">
+              <Link to="/purchase" className="inline-flex items-center gap-1.5 text-sm text-blue-600 font-body hover:underline">
+                <Store className="w-4 h-4" />
+                Add more packs
+              </Link>
+            </div>
           </div>
         </>
       )}
 
       <Passes owned={owned} />
+
+      {gateOpen && (
+        <ParentGate
+          onPass={() => {
+            setGateOpen(false);
+            setBusy(true);
+            startPreorder(cart).catch((err) => {
+              setBusy(false);
+              setError(err.message);
+            });
+          }}
+          onCancel={() => setGateOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,11 +1,14 @@
 // The Cart carries both halves of buying: packs you mean to buy, and passes you
 // already own. What it owes its user is a truthful count, a truthful total, and
 // an honest answer to "did my purchase go through?".
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Cart from '@/pages/Cart'
 import { getCart } from '@/lib/cart'
+import { startPreorder } from '@/lib/adapters/billing'
+
+vi.mock('@/lib/adapters/billing', () => ({ startPreorder: vi.fn(() => Promise.resolve()) }))
 
 const seed = (cart) => localStorage.setItem('cc_cart', JSON.stringify(cart))
 const renderCart = () => render(<Cart />, { wrapper: MemoryRouter })
@@ -35,7 +38,10 @@ describe('Cart', () => {
     renderCart()
 
     expect(screen.getByText('$17.98')).toBeInTheDocument() // the Rainbow line
-    expect(screen.getByText('$24.97')).toBeInTheDocument() // the subtotal
+    // The pre-order notice repeats the total, so pin the subtotal row itself
+    // rather than "somewhere on the page".
+    const subtotalRow = screen.getByText('Subtotal').closest('div')
+    expect(within(subtotalRow).getByText('$24.97')).toBeInTheDocument()
   })
 
   it('counts packs, not lines, in the summary', () => {
@@ -151,5 +157,50 @@ describe('Cart — passes you own', () => {
     setEntitlements(['kitchen', 'colouring'])
     renderCart()
     expect(screen.getAllByRole('link', { name: /See what the Shop unlocks/ })).toHaveLength(1)
+  })
+})
+
+describe('Cart — pre-ordering', () => {
+  const answerGate = async () => {
+    const input = screen.getByLabelText(/=/)
+    const [a, b] = input.labels[0].textContent.match(/\d+/g).map(Number)
+    fireEvent.change(input, { target: { value: String(a * b) } })
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }))
+  }
+
+  it('says plainly that nothing is charged today', () => {
+    seed({ 'rainbow-pack': 2, 'sunset-set': 1 })
+    renderCart()
+    expect(screen.getByText(/won't be charged today/i)).toBeInTheDocument()
+    expect(screen.getByText(/8 September/)).toBeInTheDocument()
+  })
+
+  it('quotes the amount that will be charged later', () => {
+    seed({ 'rainbow-pack': 2, 'sunset-set': 1 }) // 8.99*2 + 6.99 = 24.97
+    renderCart()
+    expect(screen.getAllByText(/\$24\.97/).length).toBeGreaterThan(0)
+  })
+
+  it('asks a grown-up before starting a pre-order', () => {
+    seed({ 'rainbow-pack': 1 })
+    renderCart()
+    fireEvent.click(screen.getByRole('button', { name: /Pre-order/i }))
+
+    expect(screen.getByRole('dialog', { name: /Grown-up check/i })).toBeInTheDocument()
+    expect(startPreorder).not.toHaveBeenCalled()
+  })
+
+  it('sends the basket once the check passes', async () => {
+    seed({ 'rainbow-pack': 2 })
+    renderCart()
+    fireEvent.click(screen.getByRole('button', { name: /Pre-order/i }))
+    await answerGate()
+
+    expect(startPreorder).toHaveBeenCalledWith({ 'rainbow-pack': 2 })
+  })
+
+  it('offers no pre-order at all when the basket is empty', () => {
+    renderCart()
+    expect(screen.queryByRole('button', { name: /Pre-order/i })).not.toBeInTheDocument()
   })
 })

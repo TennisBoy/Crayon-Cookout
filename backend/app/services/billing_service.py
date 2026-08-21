@@ -10,6 +10,7 @@ import logging
 
 from app.config import get_settings
 from app.core.errors import ServiceUnavailableError, UpstreamError, ValidationError
+from app.services.catalog import BY_ID, CURRENCY, DISPATCH_BY, MAX_ITEMS, MAX_PER_PACK
 from app.services.entitlements_service import EntitlementsService
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,105 @@ class BillingService:
             raise UpstreamError(detail="stripe returned no checkout url")
         return session.url
 
+    # --- Pre-orders --------------------------------------------------------
+
+    def create_preorder_session(
+        self, user_id: str, basket: dict[str, int], email: str | None = None
+    ) -> str:
+        """Reserve packs without taking any money.
+
+        Setup mode: Checkout saves a card and a shipping address against a
+        Customer and charges nothing. The card is charged by hand at dispatch.
+
+        Manual capture would be the obvious alternative and does not work here:
+        a card authorisation expires in about a week, and dispatch is further
+        out than that.
+        """
+        settings = get_settings()
+        stripe = self._stripe()
+
+        lines = self._price_basket(basket)
+        total = sum(line["subtotal"] for line in lines)
+        summary = ", ".join(f"{line['name']} x{line['qty']}" for line in lines)
+
+        try:
+            session = stripe.checkout.Session.create(
+                mode="setup",
+                currency=CURRENCY,
+                customer_creation="always",
+                customer_email=email or None,
+                client_reference_id=user_id,
+                # Canada only, for now.
+                shipping_address_collection={"allowed_countries": ["CA"]},
+                # This is the fulfilment record while there is no orders table:
+                # what to send, to whom, and what to charge when it ships.
+                metadata={
+                    "kind": "preorder",
+                    "packs": summary[:450],
+                    "total_cents": str(total),
+                    "currency": CURRENCY,
+                    "dispatch_by": DISPATCH_BY,
+                    "user_id": user_id,
+                },
+                success_url=f"{settings.site_url}/cart?preorder=placed",
+                cancel_url=f"{settings.site_url}/cart",
+            )
+        except Exception as exc:  # noqa: BLE001 - stripe raises a wide family
+            raise UpstreamError(detail=f"preorder session failed: {exc}") from exc
+
+        if not session.url:
+            raise UpstreamError(detail="stripe returned no checkout url")
+        return session.url
+
+    def quote_basket(self, basket: dict[str, int]) -> dict:
+        """What a basket costs, priced by the server.
+
+        The UI shows this before asking for a card, so the promise on screen and
+        the charge at dispatch come from one place.
+        """
+        lines = self._price_basket(basket)
+        return {
+            "lines": lines,
+            "total_cents": sum(line["subtotal"] for line in lines),
+            "currency": CURRENCY,
+            "dispatch_by": DISPATCH_BY,
+        }
+
+    @staticmethod
+    def _price_basket(basket: dict[str, int]) -> list[dict]:
+        """Resolve ids and quantities to names and prices.
+
+        Prices are never taken from the request. A basket arrives as ids and
+        counts; everything chargeable comes from the server catalog.
+        """
+        if not basket:
+            raise ValidationError("Your cart is empty.")
+
+        lines = []
+        items = 0
+        for pack_id, qty in basket.items():
+            pack = BY_ID.get(pack_id)
+            if pack is None:
+                raise ValidationError("That pack is not for sale.")
+            if not isinstance(qty, int) or qty < 1 or qty > MAX_PER_PACK:
+                raise ValidationError(
+                    f"Choose between 1 and {MAX_PER_PACK} of each pack."
+                )
+            items += qty
+            lines.append(
+                {
+                    "id": pack.id,
+                    "name": pack.name,
+                    "qty": qty,
+                    "price_cents": pack.price_cents,
+                    "subtotal": pack.price_cents * qty,
+                }
+            )
+
+        if items > MAX_ITEMS:
+            raise ValidationError(f"That is more than {MAX_ITEMS} packs in one order.")
+        return lines
+
     # --- Webhook -----------------------------------------------------------
 
     def handle_webhook(self, payload: bytes, signature: str | None) -> str:
@@ -106,6 +206,13 @@ class BillingService:
         # what the unit tests mocked and what Stripe actually sends.
         raw = event["data"]["object"]
         session = raw if isinstance(raw, dict) else raw.to_dict()
+
+        # A pre-order completes this same event in setup mode and pays nothing.
+        # The payment_status check below would catch it, but relying on that
+        # would make "pre-orders grant nothing" an accident rather than a rule.
+        if session.get("mode") == "setup":
+            logger.info("preorder reserved: %s", session.get("id"))
+            return "preorder"
 
         user_id = session.get("client_reference_id")
         if not user_id:
