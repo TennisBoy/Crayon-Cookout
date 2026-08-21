@@ -1,0 +1,19 @@
+{
+  "name": "Crayon Cookout",
+  "short_name": "Crayon Cookout",
+  "description": "Design your own crayons, save them to your library, and collect the real thing.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#A855F7",
+  "icons": [
+    {
+      "src": "/crayon-favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ]
+}
