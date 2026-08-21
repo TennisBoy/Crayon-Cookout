@@ -6,11 +6,24 @@ export default function CrayonShape({ colors = [], heights = [], shape = 'crayon
   const total = heights.reduce((a, b) => a + b, 0) || 1;
   let bottom = 0;
 
+  // Each clipPath was drawn for a box of a particular shape — the crayon tall,
+  // the moulds square. Filling the caller's box regardless would stretch a star
+  // into a spike. Instead fit the largest correctly-proportioned box inside
+  // what the caller gave us and centre it, so layouts stay put.
+  const aspect = shapeData.aspect ?? 0.5;
+  const innerWidth = Math.min(width, height * aspect);
+  const innerHeight = innerWidth / aspect;
+
   return (
-    <div className="relative inline-block" style={{ width, height }}>
+    <div
+      className="relative inline-flex items-center justify-center"
+      style={{ width, height }}
+    >
       <div
-        className="relative w-full h-full overflow-hidden"
+        className="relative overflow-hidden"
         style={{
+          width: innerWidth,
+          height: innerHeight,
           clipPath: shapeData.clipPath,
           WebkitClipPath: shapeData.clipPath,
           background: greyed ? '#E5E7EB' : '#F9FAFB',

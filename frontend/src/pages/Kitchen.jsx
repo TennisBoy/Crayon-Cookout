@@ -12,8 +12,9 @@ const TOOLS = [
   { id: 'erase', name: 'Erase', icon: Eraser },
 ];
 
-const CANVAS_W = 140;
 const CANVAS_H = 280;
+// Square moulds get their own size so they do not sprawl on a narrow phone.
+const MOULD_SIZE = 220;
 const DRAW_WIDTH = 7;
 const ERASE_WIDTH = 16;
 
@@ -35,12 +36,27 @@ export default function Kitchen() {
   const lastPosRef = useRef(null);
 
   const totalHeight = segments.reduce((a, s) => a + s.height, 0);
-  const shapeClip = SHAPES[selectedShape]?.clipPath;
+  const shapeData = SHAPES[selectedShape] ?? SHAPES.crayon;
+  const shapeClip = shapeData.clipPath;
+  // The drawing canvas overlays the mould exactly, so it has to match the
+  // shape's proportions too — a square mould in a 140x280 box was the reason
+  // every non-crayon shape looked stretched.
+  const canvasH = shapeData.aspect === 1 ? MOULD_SIZE : CANVAS_H;
+  const canvasW = Math.round(canvasH * (shapeData.aspect ?? 0.5));
 
   // Clear drawing canvas when shape changes
   useEffect(() => {
     clearDrawing();
   }, [selectedShape]);
+
+  // The button is labelled "Clear", and to anyone who has poured wax the wax
+  // IS the thing on screen. Clearing only the doodle layer made the button look
+  // broken. Shape changes still clear only the drawing — switching mould should
+  // not throw away the colours.
+  const handleClear = () => {
+    setSegments([]);
+    clearDrawing();
+  };
 
   const clearDrawing = () => {
     const canvas = drawCanvasRef.current;
@@ -203,15 +219,15 @@ export default function Kitchen() {
             {/* Crayon + Drawing Canvas */}
             <div
               className="relative"
-              style={{ width: CANVAS_W, height: CANVAS_H, clipPath: shapeClip, WebkitClipPath: shapeClip }}
+              style={{ width: canvasW, height: canvasH, clipPath: shapeClip, WebkitClipPath: shapeClip }}
             >
               <div className="absolute inset-0">
-                <CrayonShape colors={segments.map(s => s.color)} heights={segments.map(s => s.height)} shape={selectedShape} width={CANVAS_W} height={CANVAS_H} showOutline={false} />
+                <CrayonShape colors={segments.map(s => s.color)} heights={segments.map(s => s.height)} shape={selectedShape} width={canvasW} height={canvasH} showOutline={false} />
               </div>
               <canvas
                 ref={drawCanvasRef}
-                width={CANVAS_W}
-                height={CANVAS_H}
+                width={canvasW}
+                height={canvasH}
                 onMouseDown={handleDrawStart}
                 onMouseMove={handleDrawMove}
                 onMouseUp={handleDrawEnd}
@@ -231,7 +247,7 @@ export default function Kitchen() {
 
           <div className="flex gap-2 mt-3 w-full">
             <button
-              onClick={clearDrawing}
+              onClick={handleClear}
               className="flex items-center justify-center gap-1.5 bg-gray-200 hover:bg-gray-300 text-gray-600 font-semibold py-2.5 px-4 rounded-2xl transition-colors text-sm"
             >
               <Trash2 className="w-4 h-4" /> Clear
