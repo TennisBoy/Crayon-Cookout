@@ -10,35 +10,39 @@ commands from `frontend/`, python commands from `backend/`.
 
 ```bash
 cd frontend && npm install && npm run dev    # SPA on :5173
-cd frontend && npm test                      # 100 tests
+cd frontend && npm test                      # 177 tests
 cd frontend && npm run build                 # production bundle
 cd frontend && npm run lint                  # must exit 0
 cd frontend && npm run typecheck             # tsc --noEmit
 cd frontend && npm run verify                # all four, in order
 
 cd backend && python -m venv .venv
-cd backend && .venv/bin/pip install -r requirements-dev.txt
-cd backend && .venv/bin/uvicorn app.main:app --reload   # API on :8000
-cd backend && pytest                         # 73 tests
+cd backend && .venv/Scripts/pip install -r requirements-dev.txt  # .venv/bin on Linux
+cd backend && .venv/Scripts/uvicorn app.main:app --reload   # API on :8000
+cd backend && .venv/Scripts/python -m pytest  # 118 tests
 cd backend && ruff check .                   # must pass
 
-docker compose up -d --build                 # whole stack
+docker compose up -d --build                 # whole stack, LOCAL dev only
+# Production runs deploy/docker-compose.prod.yml on the VM — see Deployment.
 ```
 
 All gates — frontend tests, build, lint, backend tests — are expected to pass.
 Treat any failure as a regression, not background noise.
 
-## Deployment is IN PROGRESS — read this first
+## Deployment is LIVE — read this first
 
-The owner is part-way through first-time setup. **`docs/SETUP.md` holds the
-ordered walkthrough and a progress box saying exactly which step is next.**
-Read it before answering any "what do I do now" question, and update the
-progress box as steps complete.
+The app is in production at <https://crayoncookout.com> — an Oracle VM behind a
+Cloudflare Tunnel, **with Stripe in live mode taking real payments**. Treat main
+as shippable and a broken deploy as a customer-facing outage, not a dev problem.
 
-Nothing has ever run against the real Supabase project or a VM yet, so the
-integration is unexercised: the test suites fake the repositories so CI needs
-no secrets, which means a wrong column name or an RLS policy that rejects the
-service role would not have been caught.
+`docs/SETUP.md` records how it was built and holds the progress box; keep it
+current. Production runs `deploy/docker-compose.prod.yml` from
+`/home/ubuntu/crayon`.
+
+**The suites still fake the repositories**, so CI needs no secrets — a wrong
+column name or an RLS policy that rejects the service role would not be caught
+by a green build. Green tests are not evidence that a change works against the
+real database.
 
 **Never ask for, accept, or echo a secret in conversation.** Credentials belong
 in `.env` on the VM. To check whether something is configured, ask for a
@@ -66,19 +70,25 @@ private repository; the script is the substitute.
 
 ```
 frontend/src/
-  pages/         route components (12) — routed in App.jsx
+  pages/         route components (14) — routed in App.jsx
   components/    app components; components/ui/ = 7 hand-written primitives
   lib/api/       client.ts — THE ONLY PLACE THAT CALLS fetch
-  lib/adapters/  THE BACKEND SEAM — auth · designs · vision · consent
-  lib/           AuthContext, premium.js, cart.js, catalog.js, utils.js (cn)
-  test/          setup.js, routes.test.jsx, no-linkage.test.js
+  lib/adapters/  THE BACKEND SEAM — auth · designs · collectibles ·
+                 entitlements · billing · vision · consent · errors
+  lib/           AuthContext, premium.js, cart.js, catalog.js, utils.js (cn),
+                 authReturnTo.js, query-client.js
+  test/          setup.js, routes.test.jsx, no-linkage.test.js, smoke.test.js
 backend/app/
   api/routes/    HTTP layer — no business logic
   services/      business rules — raise AppError subclasses
   repositories/  persistence — the only modules that know about Postgres
   schemas/       pydantic request/response models
+  core/          errors.py (AppError → HTTP) · rate_limit.py
+  admin.py       `python -m app.admin grant` — comps, server-side only
 supabase/        schema.sql (idempotent) · seed.sql (dev only)
-scripts/         setup-vm.sh · install-docker.sh · deploy.sh
+scripts/         setup-vm.sh · install-docker.sh · deploy.sh ·
+                 merge-pr.sh · push-compose.sh
+deploy/          docker-compose.prod.yml — the compose file production runs
 ```
 
 Layering is one-directional: routes → services → repositories. A route never
@@ -93,10 +103,11 @@ adapters call the client. Nothing skips a layer.
 | Adapter | State |
 |---|---|
 | `designs.ts` | **Live** — `/api/designs` |
-| `auth.ts` | **Live** — `/api/auth/*`, except `signInWithProvider` |
+| `auth.ts` | **Live** — `/api/auth/*`, including Google via `signInWithProvider` |
 | `collectibles.ts` | **Live** — `/api/collectibles`, `cc_collected` is a cache |
 | `vision.ts` | **Live** — `/api/vision/verify-crayon` (low-level; prefer `collectibles.verify`) |
 | `entitlements.ts` | **Live** — `/api/entitlements`, `cc_entitlements` is a cache |
+| `billing.ts` | **Live** — `POST /api/billing/checkout`, then redirects to Stripe |
 | `consent.js` | **Stub** — no backend equivalent for the MCP consent flow |
 
 **Verification and unlocking are one server call.** There is deliberately no
@@ -212,8 +223,20 @@ genuinely hard (focus management, virtualisation, accessible menus).
 - **CI runs the Docker builds** (`.github/workflows/ci.yml`) because a broken
   Dockerfile otherwise only surfaces mid-deploy. It also smoke-tests that the
   API image answers `/api/health` with no configuration at all.
-- **`AdBar.jsx` and `ColouringLab.jsx` are placeholders** — the originals were
-  missing or corrupt. Real implementations still needed.
+- **`ColouringLab.jsx` is a placeholder** — the original was missing or corrupt.
+  A real implementation is still needed.
+- **Never build production images from Git Bash.** MSYS rewrites leading-slash
+  arguments, so `--build-arg VITE_API_BASE_URL=/api` baked
+  `C:/Program Files/Git/api` into the bundle and every API call broke. Build
+  from PowerShell, and `grep -c 'Program Files'` the built asset — expect 0.
+- **The compose file production runs must be the one under review.** The VM's
+  copy drifted, three Stripe variables never reached the container, and a real
+  payment failed with a 503. `deploy/docker-compose.prod.yml` is in git, shipped
+  by `scripts/push-compose.sh`; `tests/test_compose_parity.py` fails on drift.
+- **Comps go through `python -m app.admin grant` on the VM**, or a 100%-off
+  Stripe promotion code — never a new endpoint. The webhook is the only thing
+  that may grant an entitlement over HTTP; a second path means a bug in its
+  guard frees every paid feature. Grants record `source='grant'`.
 - **`VITE_API_BASE_URL` is inlined at BUILD time**, not read at runtime.
   Changing it needs `docker compose build frontend`; a restart does nothing.
 - **Data and auth use different credentials, and both are required.**

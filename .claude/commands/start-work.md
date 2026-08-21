@@ -18,8 +18,8 @@ order of priority:
 
 1. Failing gates — `npm test`, `npm run build`, `npm run lint`
 2. Open GitHub issues — `gh issue list --limit 20`
-3. Known gaps recorded in `CLAUDE.md` — the `AdBar.jsx` and `ColouringLab.jsx`
-   placeholders, and the stubbed `auth` / `vision` / `consent` adapters
+3. Known gaps recorded in `CLAUDE.md` — the `ColouringLab.jsx` placeholder and
+   the stubbed `consent` adapter
 4. `TODO` / `FIXME` comments in `src/`
 
 Say in one line which item you picked and why. Prefer the smallest change that

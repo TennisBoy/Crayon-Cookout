@@ -5,18 +5,14 @@ export { refreshEntitlements, clearEntitlements } from '@/lib/adapters/entitleme
 /**
  * Does the user have this feature?
  *
- * Reads the server-backed cache first. The `cc_<feature>` localStorage flag is
- * still honoured because the trial and the not-yet-replaced Shop button write
- * it; once Stripe Checkout lands, purchases come only from the server and the
- * local half of this union goes away.
+ * The server-backed cache is the ONLY source. There used to be a fallback to a
+ * `cc_<feature>` localStorage flag, left in place while the Shop still wrote
+ * one. Stripe replaced that, and the fallback then had one remaining effect: a
+ * stale flag on a shared browser unlocked a paid feature for every account that
+ * signed in afterwards.
  */
 export function hasFeature(feature) {
-  if (cachedFeatures().includes(feature)) return true;
-  try {
-    return localStorage.getItem(`cc_${feature}`) === 'true';
-  } catch {
-    return false;
-  }
+  return cachedFeatures().includes(feature);
 }
 
 export function setFeature(feature, value = true) {
@@ -35,7 +31,13 @@ export function isTrialActive() {
 }
 
 export function hasTrialUsed() {
-  return hasFeature('trial_used');
+  // Reads its key directly: the trial is genuinely local, and hasFeature now
+  // answers only for server-granted entitlements.
+  try {
+    return localStorage.getItem('cc_trial_used') === 'true';
+  } catch {
+    return false;
+  }
 }
 
 export function startTrial() {

@@ -101,9 +101,18 @@ describe('premium.hasFeature', () => {
     expect(localStorage.getItem('cc_kitchen')).toBeNull()
   })
 
-  it('still honours the local trial flag', async () => {
+  it('ignores a local flag entirely', async () => {
+    // hasFeature answers only for server-granted entitlements now. A stale
+    // cc_<feature> on a shared browser used to unlock a paid feature for every
+    // account that signed in afterwards.
     const { hasFeature } = await import('@/lib/premium')
+    localStorage.setItem('cc_kitchen', 'true')
+    expect(hasFeature('kitchen')).toBe(false)
+  })
+
+  it('reads the trial from its own key, not from hasFeature', async () => {
+    const { hasTrialUsed } = await import('@/lib/premium')
     localStorage.setItem('cc_trial_used', 'true')
-    expect(hasFeature('trial_used')).toBe(true)
+    expect(hasTrialUsed()).toBe(true)
   })
 })
