@@ -95,7 +95,13 @@ class BillingService:
             # want.
             return "ignored"
 
-        session = event["data"]["object"]
+        # stripe-python returns typed resources, not dicts: `Session.get` raises
+        # rather than reading a field. Normalising here keeps the rest of this
+        # method working on plain data -- and is exactly the difference between
+        # what the unit tests mocked and what Stripe actually sends.
+        raw = event["data"]["object"]
+        session = raw if isinstance(raw, dict) else raw.to_dict()
+
         user_id = session.get("client_reference_id")
         if not user_id:
             logger.warning("checkout.session.completed with no client_reference_id")
