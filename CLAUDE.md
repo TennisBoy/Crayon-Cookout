@@ -49,6 +49,13 @@ command that prints a boolean:
 
 - `/start-work` — branch, implement, verify, commit, push, open a PR
 - `/complete-work` — review the PR, merge, clean up the branch
+- `/wrap-up` — close out a session: tidy the repo, update the progress box, and
+  add what was learned to [`docs/session-log.md`](docs/session-log.md)
+
+**Read `docs/session-log.md` before starting.** The top entries record the bugs
+that cost a day and the guards added since — including why production images
+must not be built from Git Bash, and why a passing `curl` is not proof a feature
+works.
 
 **Merge with `./scripts/merge-pr.sh <number>`, never `gh pr merge`.** The latter
 merges while checks are still queued — it has, twice. `main` has no server-side

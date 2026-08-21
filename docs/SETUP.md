@@ -9,43 +9,45 @@ knows where you are without asking you to re-explain.
 
 ## Where you are right now
 
-_Last updated: 2026-08-19_
+_Last updated: 2026-08-21 — **setup is complete; the app is live.**_
 
 | Step | State |
 |---|---|
-| 1. Cloudflare domain | ✅ **Done** — `crayoncookout.com` is on Cloudflare |
+| 1. Cloudflare domain | ✅ **Done** — `crayoncookout.com` |
 | 2a. Supabase project | ✅ **Done** — project ref `jhwhkidhazzyztyuijhl` |
-| 2b. Run `schema.sql` | ✅ **Done** — 2026-08-15, "Success. No rows returned" |
-| 2c. Collect credentials | ⚠️ **Incomplete** — the key collected is the new `sb_secret_` format, which `supabase==2.11.0` rejects. Needs the **legacy `service_role` JWT**, plus the **session-pooler `DATABASE_URL`** |
-| 2d. Supabase auth config | ✅ **Done** |
-| 3. Oracle Cloud VM | ✅ **Done** — instance running, SSH reachable on port 22 |
-| 4. VM prepared | ✅ **Done** — Docker 28.1.1, ufw, 4 GB swap |
-| 5. Fill in `.env` | ⏳ **NEXT** — `DATABASE_URL` and the legacy JWT are both outstanding |
-| 6. Deploy | ✅ **Done** — stack healthy, but needs a rebuild to pick up `psycopg` |
-| 7. Cloudflare Tunnel | ⚠️ **Partial** — tunnel created, `config.yml` validates. DNS route and service install still pending |
-| 8. End-to-end verification | ⬜ Not started |
+| 2b. Run `schema.sql` | ✅ **Done** — re-run since, for the `entitlements` table |
+| 2c. Collect credentials | ✅ **Done** — pooler DSN + legacy `service_role` JWT |
+| 2d. Supabase auth config | ✅ **Done** — email OTP, Google, redirect URLs |
+| 3. Oracle Cloud VM | ✅ **Done** |
+| 4. VM prepared | ✅ **Done** — Docker, ufw, 4 GB swap |
+| 5. Fill in `.env` | ✅ **Done** |
+| 6. Deploy | ✅ **Done** — images built locally, shipped over SSH |
+| 7. Cloudflare Tunnel | ✅ **Done** — systemd service, survives reboot |
+| 8. End-to-end verification | ✅ **Done** — register, Google sign-in, save a design, reload |
 
-### The VM layout changed
+### Beyond the original walkthrough
 
-The deployment root is now **`/home/ubuntu/crayon`**, holding `docker-compose.yml`
-and `.env` and no source checkout: images are built in CI and pulled by tag.
-Steps 4–6 below still describe the original clone-and-build-on-the-VM flow,
-which works and remains the fallback when a registry is unreachable. See
-[`INFRASTRUCTURE.md`](../INFRASTRUCTURE.md) for what is actually deployed.
+| | |
+|---|---|
+| Data layer | Direct PostgreSQL (`DATABASE_URL`), not PostgREST |
+| Auth | Supabase GoTrue — email OTP **and** Google |
+| Payments | **Stripe live mode**, permanent webhook, entitlements in Postgres |
+| Comps | `python -m app.admin grant`, or promotion code `CRAYONFREE` |
+| Deployment root | `/home/ubuntu/crayon` — compose from `deploy/docker-compose.prod.yml` |
 
-### ⚠️ Outstanding action, unverified
+**Untested, unavoidably:** a real live purchase. Completing live checkout charges
+a real card, and Stripe's test cards are rejected in live mode. Doing one
+yourself and refunding it is the safest way to prove it before a customer does.
 
-A **Postgres connection string containing the database password was pasted into
-a chat session** on 2026-08-13. It must be rotated, and it is not confirmed that
-it has been:
+**Read [`session-log.md`](session-log.md)** for what was learned building this —
+including the traps in this document that turned out to be wrong.
 
-> Supabase dashboard → **Project Settings → Database → Reset database password**
+### Resolved: the leaked database password
 
-**This is no longer free.** The backend now reaches `crayon_designs` and
-`collectibles` over direct SQL, so the password is embedded in `DATABASE_URL`
-in `.env` on the VM. Rotate it *first*, then copy the new connection string
-into `.env` and `docker compose up -d`. Rotating without updating `.env` takes
-the app's data layer down (auth keeps working — different credential).
+A connection string containing the database password was pasted into a chat on
+2026-08-13. The password has since been reset, and the current `DATABASE_URL` on
+the VM uses the new one — the app reaches Postgres, so it is demonstrably not
+the old credential.
 
 ### Decisions already made
 
@@ -107,7 +109,7 @@ The file is idempotent. If unsure whether it ran, run it again.
 **If it fails:** the likeliest cause is being in the wrong project. Check the
 project switcher top-left.
 
-### 2c. Collect the credentials ⚠️ INCOMPLETE
+### 2c. Collect the credentials ✅
 
 Both live in the Supabase dashboard:
 
@@ -176,7 +178,7 @@ sudo ./scripts/setup-vm.sh
 OS patches, Docker, firewall (deny inbound except SSH), swap on low-memory
 instances, and it creates `.env` from the template.
 
-## 5. Fill in `.env` ⏳ START HERE
+## 5. Fill in `.env` ✅
 
 ```bash
 nano .env
@@ -220,7 +222,7 @@ are *correct* — step 8 proves that.
 `deploy.sh` will not report success unless every container reports healthy, and
 prints the rollback command if it fails.
 
-## 7. Cloudflare Tunnel ⚠️ PARTIAL
+## 7. Cloudflare Tunnel ✅
 
 ```bash
 curl -fsSLo cloudflared.deb \
@@ -256,7 +258,7 @@ sudo systemctl enable --now cloudflared
 
 Full detail and troubleshooting: [cloudflare-tunnel.md](cloudflare-tunnel.md).
 
-## 8. Verify end to end ⬜ NOT STARTED
+## 8. Verify end to end ✅
 
 ```bash
 curl -s https://crayoncookout.com/api/health
