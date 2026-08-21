@@ -1,19 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import DropdownMenu from './DropdownMenu';
-import AdBar from './AdBar';
-import { hasNoAds } from '@/lib/premium';
 import { BookMarked, Home } from 'lucide-react';
 
 export default function AppLayout() {
-  const [noAds, setNoAds] = useState(hasNoAds());
-
-  useEffect(() => {
-    const handler = () => setNoAds(hasNoAds());
-    window.addEventListener('cc-premium-change', handler);
-    return () => window.removeEventListener('cc-premium-change', handler);
-  }, []);
-
   return (
     <div className="min-h-screen flex flex-col rainbow-bg">
       <header className="no-print sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-purple-100 px-3 py-2.5 flex items-center justify-between">
@@ -30,11 +20,9 @@ export default function AppLayout() {
         </Link>
       </header>
 
-      <main className={`flex-1 ${noAds ? 'pb-4' : 'pb-20'}`}>
+      <main className="flex-1 pb-4">
         <Outlet />
       </main>
-
-      <AdBar />
     </div>
   );
 }
