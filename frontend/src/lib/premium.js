@@ -1,4 +1,17 @@
+import { cachedFeatures } from '@/lib/adapters/entitlements';
+
+export { refreshEntitlements, clearEntitlements } from '@/lib/adapters/entitlements';
+
+/**
+ * Does the user have this feature?
+ *
+ * Reads the server-backed cache first. The `cc_<feature>` localStorage flag is
+ * still honoured because the trial and the not-yet-replaced Shop button write
+ * it; once Stripe Checkout lands, purchases come only from the server and the
+ * local half of this union goes away.
+ */
 export function hasFeature(feature) {
+  if (cachedFeatures().includes(feature)) return true;
   try {
     return localStorage.getItem(`cc_${feature}`) === 'true';
   } catch {

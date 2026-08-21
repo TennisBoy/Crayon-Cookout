@@ -66,6 +66,42 @@ create index if not exists collectibles_user_idx
     on public.collectibles (user_id);
 
 -- ---------------------------------------------------------------------------
+-- entitlements
+-- ---------------------------------------------------------------------------
+-- What a user has paid for. Until this table existed, premium features were
+-- gated by a localStorage flag, which meant the paid features were free to
+-- anyone who opened a browser console. The server is the authority now; the
+-- client keeps a read-through cache so the UI paints instantly.
+--
+-- `source` records HOW the entitlement was granted, which is what makes a
+-- refund or a mistaken grant traceable later.
+create table if not exists public.entitlements (
+    id           uuid primary key default gen_random_uuid(),
+    user_id      uuid not null references auth.users (id) on delete cascade,
+    feature      text not null,
+    source       text not null default 'purchase',
+    reference    text,
+    granted_at   timestamptz not null default now(),
+
+    -- Owning a feature twice is meaningless; granting it again is a no-op.
+    unique (user_id, feature),
+
+    constraint entitlements_known_feature
+        check (feature in ('kitchen', 'colouring')),
+    constraint entitlements_known_source
+        check (source in ('purchase', 'trial', 'grant'))
+);
+
+create index if not exists entitlements_user_idx
+    on public.entitlements (user_id);
+
+-- A Stripe session must produce exactly one entitlement even if Stripe
+-- delivers the same webhook twice, which it is explicitly allowed to do.
+create unique index if not exists entitlements_reference_idx
+    on public.entitlements (reference)
+    where reference is not null;
+
+-- ---------------------------------------------------------------------------
 -- updated_at maintenance
 -- ---------------------------------------------------------------------------
 create or replace function public.set_updated_at()
@@ -92,12 +128,20 @@ create trigger crayon_designs_set_updated_at
 -- a user still cannot read or write anyone else's rows.
 alter table public.crayon_designs enable row level security;
 alter table public.collectibles   enable row level security;
+alter table public.entitlements   enable row level security;
 
 drop policy if exists "own designs" on public.crayon_designs;
 create policy "own designs" on public.crayon_designs
     for all
     using (auth.uid() = user_id)
     with check (auth.uid() = user_id);
+
+drop policy if exists "own entitlements" on public.entitlements;
+-- Read-only for the user: entitlements are granted by the server after a
+-- verified payment, never written by a client.
+create policy "own entitlements" on public.entitlements
+    for select
+    using (auth.uid() = user_id);
 
 drop policy if exists "own collectibles" on public.collectibles;
 create policy "own collectibles" on public.collectibles
@@ -108,3 +152,4 @@ create policy "own collectibles" on public.collectibles
 -- Deny-by-default for anonymous callers. Nothing here is public.
 revoke all on public.crayon_designs from anon;
 revoke all on public.collectibles   from anon;
+revoke all on public.entitlements   from anon;
