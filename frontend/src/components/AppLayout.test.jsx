@@ -50,6 +50,27 @@ describe('AppLayout header', () => {
     expect(screen.queryByRole('link', { name: /Sign In/i })).not.toBeInTheDocument()
   })
 
+  it('offers the Shop to the left of Library', async () => {
+    getCurrentUser.mockRejectedValue(new Error('no session'))
+    renderHeader()
+
+    await screen.findByRole('link', { name: /Sign In/i })
+    const shop = screen.getByRole('link', { name: /Shop/i })
+    const library = screen.getByRole('link', { name: /Library/i })
+    expect(shop).toHaveAttribute('href', '/shop')
+    // DOCUMENT_POSITION_FOLLOWING: library comes after shop in the DOM, which
+    // is what puts it to the right in a flex row.
+    expect(shop.compareDocumentPosition(library) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows the Shop whether signed in or out', async () => {
+    getCurrentUser.mockResolvedValue({ id: 'u1', email: 'kid@example.com' })
+    renderHeader()
+
+    await screen.findByRole('button', { name: /Sign Out/i })
+    expect(screen.getByRole('link', { name: /Shop/i })).toHaveAttribute('href', '/shop')
+  })
+
   it('keeps the Library link alongside the auth control', async () => {
     getCurrentUser.mockRejectedValue(new Error('no session'))
     renderHeader()
