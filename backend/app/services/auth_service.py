@@ -11,7 +11,13 @@ Two properties this module is responsible for:
 """
 import logging
 
-from app.core.errors import AuthError, ServiceUnavailableError, UpstreamError
+from app.config import get_settings
+from app.core.errors import (
+    AuthError,
+    ServiceUnavailableError,
+    UpstreamError,
+    ValidationError,
+)
 from app.repositories.supabase_client import get_supabase
 from app.schemas.auth import SessionOut, UserOut
 
@@ -21,6 +27,9 @@ GENERIC_SIGNIN_FAILURE = "That email or password is not correct."
 NEUTRAL_MESSAGE = (
     "If an account exists for that address, we have sent it an email."
 )
+
+
+ALLOWED_OAUTH_PROVIDERS = frozenset({"google"})
 
 
 class AuthService:
@@ -153,3 +162,36 @@ class AuthService:
         except Exception as exc:  # noqa: BLE001
             raise AuthError("That reset link is not valid or has expired.") from exc
         return "Your password has been updated."
+
+    # --- OAuth -------------------------------------------------------------
+
+    def oauth_authorize_url(self, provider: str, origin: str, return_to: str) -> str:
+        """Build the GoTrue authorize URL the browser should be sent to.
+
+        Built here rather than in the SPA so the Supabase URL stays out of the
+        browser bundle, and so `return_to` is validated somewhere the client
+        cannot skip.
+
+        `return_to` is a PATH, never a URL. Accepting a full URL would make this
+        an open redirect: an attacker could send a victim through our own
+        domain to theirs, arriving with a real session in the fragment.
+        """
+        from urllib.parse import quote, urlencode
+
+        settings = get_settings()
+        if not settings.supabase_configured:
+            raise ServiceUnavailableError(
+                "Social sign-in is not configured on this server.",
+                detail="SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are unset",
+            )
+        if provider not in ALLOWED_OAUTH_PROVIDERS:
+            raise ValidationError(f"{provider} sign-in is not supported.")
+        if not return_to.startswith("/") or return_to.startswith("//"):
+            # "//evil.com" is protocol-relative and would leave the site.
+            raise ValidationError("return_to must be a path on this site.")
+        if origin not in settings.cors_origin_list:
+            raise ValidationError("Unrecognised origin.")
+
+        callback = f"{origin}/auth/callback?next={quote(return_to, safe='/')}"
+        query = urlencode({"provider": provider, "redirect_to": callback})
+        return f"{settings.supabase_url}/auth/v1/authorize?{query}"
