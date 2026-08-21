@@ -50,6 +50,11 @@ command that prints a boolean:
 - `/start-work` — branch, implement, verify, commit, push, open a PR
 - `/complete-work` — review the PR, merge, clean up the branch
 
+**Merge with `./scripts/merge-pr.sh <number>`, never `gh pr merge`.** The latter
+merges while checks are still queued — it has, twice. `main` has no server-side
+protection because branch protection and rulesets both require GitHub Pro on a
+private repository; the script is the substitute.
+
 ## Architecture
 
 ```

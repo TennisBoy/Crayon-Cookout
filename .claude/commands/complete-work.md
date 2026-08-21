@@ -60,11 +60,14 @@ return to step 3.
 ## 5. Merge and clean up — only after approval
 
 ```bash
-gh pr merge <number> --squash --delete-branch
-git checkout main
-git pull --ff-only origin main
+./scripts/merge-pr.sh <number>     # waits for green CI, then squash-merges
 git branch -d <headRefName>        # plain -d; never force-delete
 ```
+
+**Do not call `gh pr merge` directly.** It merges a PR whose checks are still
+queued without complaining, which has already happened twice here. Branch
+protection would stop it server-side, but that needs GitHub Pro on a private
+repo, so the script is the guard.
 
 Use `--squash` unless the branch's individual commits are worth keeping in
 history, in which case use `--merge` and say why.
