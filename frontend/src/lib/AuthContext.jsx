@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { getCurrentUser, signOut, redirectToLogin } from '@/lib/adapters/auth';
+import { refreshEntitlements, clearEntitlements } from '@/lib/adapters/entitlements';
 
 const AuthContext = createContext();
 
@@ -20,9 +21,14 @@ export const AuthProvider = ({ children }) => {
       const currentUser = await getCurrentUser();
       setUser(currentUser);
       setIsAuthenticated(true);
+      // Entitlements belong to a user, so this is the moment to fetch them.
+      // Deliberately not awaited: gated UI reads the cache and repaints on the
+      // cc-premium-change event, so a slow call must not delay the whole app.
+      refreshEntitlements().catch(() => {});
     } catch {
       setUser(null);
       setIsAuthenticated(false);
+      clearEntitlements();
     } finally {
       setIsLoadingAuth(false);
       setAuthChecked(true);
@@ -44,6 +50,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback((shouldRedirect = true) => {
     setUser(null);
     setIsAuthenticated(false);
+    clearEntitlements();
     signOut(shouldRedirect ? window.location.href : undefined).catch(() => {});
   }, []);
 

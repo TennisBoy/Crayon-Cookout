@@ -84,6 +84,7 @@ adapters call the client. Nothing skips a layer.
 | `auth.ts` | **Live** — `/api/auth/*`, except `signInWithProvider` |
 | `collectibles.ts` | **Live** — `/api/collectibles`, `cc_collected` is a cache |
 | `vision.ts` | **Live** — `/api/vision/verify-crayon` (low-level; prefer `collectibles.verify`) |
+| `entitlements.ts` | **Live** — `/api/entitlements`, `cc_entitlements` is a cache |
 | `consent.js` | **Stub** — no backend equivalent for the MCP consent flow |
 
 **Verification and unlocking are one server call.** There is deliberately no
@@ -96,11 +97,17 @@ collectibles, so it runs server-side; never ship an API key to the browser.
 
 ## Client state: the `cc_*` contract
 
-Designs and collectibles now live in Postgres. `cc_collected` remains as a
-read-through **cache** so shelves paint instantly and survive an outage — the
-server is the source of truth. Still purely local: `cc_trial_expiry`,
-`cc_<feature>` premium flags (see `lib/premium.js`), and `cc_access_token`
-(the session token, managed by `lib/api/client.ts`).
+Designs, collectibles and entitlements now live in Postgres. `cc_collected` and
+`cc_entitlements` remain as read-through **caches** so shelves and gated UI paint
+instantly and survive an outage — the server is the source of truth. Still purely
+local: `cc_trial_expiry`, `cc_trial_used`, and `cc_access_token` (the session
+token, managed by `lib/api/client.ts`).
+
+**Entitlements are server-authoritative.** `hasFeature()` reads the
+`cc_entitlements` cache first and falls back to the old `cc_<feature>` flag,
+which the trial still writes. There is deliberately **no endpoint that grants**
+an entitlement — a client that could grant its own would make paying optional.
+Grants happen server-to-server in the Stripe webhook.
 
 Two custom window events drive cross-component updates — dispatch them after
 writing or the UI won't react:

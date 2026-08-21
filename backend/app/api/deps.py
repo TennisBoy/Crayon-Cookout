@@ -8,6 +8,7 @@ from app.core.rate_limit import Limit, limiter
 from app.schemas.auth import UserOut
 from app.services.auth_service import AuthService
 from app.services.designs_service import DesignsService
+from app.services.entitlements_service import EntitlementsService
 
 
 def get_auth_service() -> AuthService:
@@ -16,6 +17,10 @@ def get_auth_service() -> AuthService:
 
 def get_designs_service() -> DesignsService:
     return DesignsService()
+
+
+def get_entitlements_service() -> EntitlementsService:
+    return EntitlementsService()
 
 
 def _bearer(authorization: str | None) -> str:
@@ -38,6 +43,9 @@ def current_user(
 CurrentUser = Annotated[UserOut, Depends(current_user)]
 AuthDep = Annotated[AuthService, Depends(get_auth_service)]
 DesignsDep = Annotated[DesignsService, Depends(get_designs_service)]
+EntitlementsDep = Annotated[
+    EntitlementsService, Depends(get_entitlements_service)
+]
 
 
 def client_key(request: Request) -> str:
