@@ -1,15 +1,23 @@
-// The logo used to be rebuilt out of rotated divs while the tab icon was a
-// separate SVG file — two definitions of one mark. These pin that there is now
-// exactly one source, so the two can never drift apart again.
+// The logo on /home is drawn in the component: seven rainbow crayons fanned
+// out, no tile behind them. The favicon is a separate, deliberately different
+// mark — an app icon needs a background and has to survive 16px; a logo on a
+// page does not, and a rounded tile blown up to 130px reads as a sticker.
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import CrayonLogo from '@/components/CrayonLogo'
 
 describe('CrayonLogo', () => {
-  it('renders the same asset the browser tab uses', () => {
+  it('draws the crayons rather than loading the favicon', () => {
     const { container } = render(<CrayonLogo />)
-    const img = container.querySelector('img')
-    expect(img).toHaveAttribute('src', '/crayon-favicon.svg')
+    expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('fans out one crayon per brand colour', () => {
+    const { container } = render(<CrayonLogo showText={false} />)
+    const rotated = [...container.querySelectorAll('div')].filter((d) =>
+      d.style.transform?.includes('rotate'),
+    )
+    expect(rotated).toHaveLength(7)
   })
 
   it('shows the wordmark by default', () => {
@@ -17,21 +25,17 @@ describe('CrayonLogo', () => {
     expect(screen.getByRole('heading', { name: 'Crayon Cookout' })).toBeInTheDocument()
   })
 
-  it('names the app for screen readers when the wordmark is hidden', () => {
+  it('can hide the wordmark', () => {
     render(<CrayonLogo showText={false} />)
-    expect(screen.getByRole('img', { name: 'Crayon Cookout' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
   })
 
-  it('does not repeat the name when the wordmark is visible', () => {
-    const { container } = render(<CrayonLogo />)
-    // Announcing "Crayon Cookout" twice in a row is worse than not at all.
-    expect(container.querySelector('img')).toHaveAttribute('aria-hidden', 'true')
-  })
-
-  it('honours the requested size', () => {
-    const { container } = render(<CrayonLogo size={28} showText={false} />)
-    const img = container.querySelector('img')
-    expect(img).toHaveAttribute('width', '28')
-    expect(img.style.height).toBe('28px')
+  it('scales with the size it is given', () => {
+    const { container } = render(<CrayonLogo size={200} showText={false} />)
+    // The row that holds the crayons is sized to the requested height.
+    const row = [...container.querySelectorAll('div')].find(
+      (d) => d.style.height === '200px',
+    )
+    expect(row).toBeTruthy()
   })
 })
