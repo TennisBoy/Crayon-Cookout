@@ -26,7 +26,15 @@ echo "==> checks are green, merging"
 gh pr merge "$PR" --squash --delete-branch
 
 echo "==> updating local main"
-git checkout main
-git pull --ff-only origin main
+# `git checkout main` fails outright when another worktree holds that branch —
+# which is how this script failed on its first real use, AFTER the merge had
+# already landed. The merge is the important part; switching branches is a
+# convenience, so a busy worktree must not look like a failed merge.
+if git checkout main 2>/dev/null; then
+    git pull --ff-only origin main
+else
+    echo "!! main is checked out in another worktree — updating the ref in place"
+    git fetch origin main:main
+fi
 git fetch --prune origin
-git log --oneline -1
+git log --oneline origin/main -1
