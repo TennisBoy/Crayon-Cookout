@@ -72,6 +72,9 @@ def test_checkout_is_not_configurable_by_the_client(client, billing):
     # The identity comes from the session, never from the request.
     assert kwargs["client_reference_id"] == TEST_USER.id
     assert kwargs["mode"] == "payment"
+    # A 100%-off promotion code is how a free purchase happens; the alternative
+    # is a bypass in our own code, which is a second way to grant entitlements.
+    assert kwargs["allow_promotion_codes"] is True
 
 
 def test_checkout_requires_a_session(anon_client):
