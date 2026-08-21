@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Crayon Cookout">
+  <title>Crayon Cookout</title>
+  <!-- Rounded square so the mark reads as an app icon at 16px rather than a
+       thin diagonal line lost against the tab strip. -->
+  <rect width="64" height="64" rx="14" fill="#A855F7"/>
+  <!-- One crayon, tilted. Detail below ~4px of stroke disappears at favicon
+       size, so this is three shapes and nothing else. -->
+  <g transform="rotate(-30 32 32)">
+    <!-- barrel -->
+    <rect x="24" y="16" width="16" height="30" rx="3" fill="#FDE68A"/>
+    <!-- label band: the one detail that still reads at 16px -->
+    <rect x="24" y="26" width="16" height="8" fill="#F59E0B"/>
+    <!-- tip -->
+    <path d="M24 16 L32 4 L40 16 Z" fill="#EF4444"/>
+  </g>
+</svg>
