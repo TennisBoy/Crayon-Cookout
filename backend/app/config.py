@@ -42,6 +42,16 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = Field(default="")
     supabase_anon_key: str = Field(default="")
 
+    # --- Stripe --------------------------------------------------------------
+    # Checkout runs server-side: the browser is redirected to Stripe's hosted
+    # page, so no publishable key is needed and no card data touches this app.
+    stripe_secret_key: str = Field(default="")
+    # Proves a webhook really came from Stripe. Without it anyone could POST a
+    # fake "payment succeeded" and unlock features for free.
+    stripe_webhook_secret: str = Field(default="")
+    # The one-time price for the Kitchen + Colouring pass.
+    stripe_price_id: str = Field(default="")
+
     # --- Public site ---------------------------------------------------------
     # Where the SPA is served from. Used to build OAuth callback URLs, which
     # must not be derived from a request header: browsers omit Origin on
@@ -83,6 +93,11 @@ class Settings(BaseSettings):
             self.cors_origin_list[0] if self.cors_origin_list else ""
         )
         return raw.rstrip("/")
+
+    @property
+    def stripe_configured(self) -> bool:
+        """Checkout needs a key and a price; the webhook needs its own secret."""
+        return bool(self.stripe_secret_key and self.stripe_price_id)
 
     @property
     def database_configured(self) -> bool:
