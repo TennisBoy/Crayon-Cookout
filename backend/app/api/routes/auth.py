@@ -6,13 +6,14 @@ must not differ based on whether the address is registered.
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 
 from app.api.deps import AuthDep, CurrentUser, rate_limit
 from app.core.rate_limit import LOGIN, OTP, PASSWORD_RESET, SIGNUP
 from app.schemas.auth import (
     EmailOnlyRequest,
     MessageOut,
+    OAuthUrlOut,
     PasswordResetConfirm,
     RefreshRequest,
     SessionOut,
@@ -106,3 +107,21 @@ def refresh(payload: RefreshRequest, auth: AuthDep) -> SessionOut:
     users out roughly hourly, mid-drawing.
     """
     return auth.refresh_session(payload.refresh_token)
+
+
+@router.get("/oauth/{provider}", response_model=OAuthUrlOut)
+def oauth_authorize(
+    provider: str,
+    auth: AuthDep,
+    origin: Annotated[str | None, Header()] = None,
+    return_to: Annotated[str, Query(max_length=512)] = "/home",
+) -> OAuthUrlOut:
+    """Return the URL that starts a social sign-in.
+
+    A GET returning a URL rather than a 302: the SPA needs to navigate the
+    top-level window itself, and a redirect issued to fetch() would be followed
+    invisibly instead.
+    """
+    return OAuthUrlOut(
+        url=auth.oauth_authorize_url(provider, origin or "", return_to)
+    )

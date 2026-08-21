@@ -152,9 +152,40 @@ export async function redirectToLogin(returnTo?: string): Promise<void> {
  */
 export async function signInWithProvider(
   provider: string,
-  _returnTo?: string,
-): Promise<never> {
-  throw new Error(
-    `Signing in with ${provider} is not configured on this server yet.`,
+  returnTo = '/home',
+): Promise<void> {
+  // The server builds the URL: it holds the Supabase address, and it validates
+  // `returnTo` somewhere the browser cannot skip. Coming back from Google, the
+  // session arrives in this page's URL fragment, so an unchecked redirect
+  // target would be an open invitation to hand that session away.
+  const query = `?return_to=${encodeURIComponent(returnTo)}`
+  const { url } = await api.get<{ url: string }>(
+    `/auth/oauth/${encodeURIComponent(provider)}${query}`,
+    { auth: false },
   )
+  // A top-level navigation, not fetch — the user has to actually visit Google.
+  window.location.assign(url)
+}
+
+/**
+ * Finish a social sign-in.
+ *
+ * Supabase hands the session back in the URL *fragment*, which never reaches a
+ * server. Reading it here and storing both tokens is what turns that redirect
+ * into a logged-in session.
+ */
+export async function completeOAuthSession(fragment: string): Promise<void> {
+  const params = new URLSearchParams(
+    fragment.startsWith('#') ? fragment.slice(1) : fragment,
+  )
+
+  const error = params.get('error_description') || params.get('error')
+  if (error) throw new Error(error)
+
+  const accessToken = params.get('access_token')
+  const refreshToken = params.get('refresh_token')
+  if (!accessToken) throw new Error('That sign-in did not complete.')
+
+  storeToken(accessToken)
+  if (refreshToken) storeRefreshToken(refreshToken)
 }

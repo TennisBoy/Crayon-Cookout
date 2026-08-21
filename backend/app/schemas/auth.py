@@ -63,3 +63,8 @@ class MessageOut(BaseModel):
     """
 
     message: str
+
+class OAuthUrlOut(BaseModel):
+    """Where to send the browser to start an OAuth handshake."""
+
+    url: str
