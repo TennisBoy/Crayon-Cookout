@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 # Set before any app import so get_settings() caches test values.
 os.environ.setdefault("ENVIRONMENT", "development")
 os.environ.setdefault("CORS_ORIGINS", "http://localhost:5173")
+os.environ.setdefault("DATABASE_URL", "")
 os.environ.setdefault("SUPABASE_URL", "")
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "")
 os.environ.setdefault("ANTHROPIC_API_KEY", "")

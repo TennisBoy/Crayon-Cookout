@@ -37,8 +37,13 @@ curl -s localhost:8000/api/health/ready
   │ FastAPI :8000  │   │ React SPA :3000   │
   └───────┬────────┘   └───────────────────┘
           │
-   Supabase (Postgres + Auth)
+          ├── PostgreSQL  (designs, collectibles — direct SQL)
+          └── Supabase Auth (register, OTP, login, reset, refresh)
 ```
+
+Two credentials, deliberately: `DATABASE_URL` for the tables, a Supabase key for
+auth. GoTrue owns `auth.users`, password hashing and the OTP emails, so there is
+no SQL equivalent for the auth half.
 
 Both containers bind to `127.0.0.1` only. Nothing is reachable from the
 internet except through the tunnel.
@@ -85,7 +90,7 @@ in production.
 
 ```bash
 cd frontend && npm run verify  # typecheck + lint + 98 tests + build
-cd backend && pytest && ruff check .   # 49 tests
+cd backend && pytest && ruff check .   # 73 tests
 ```
 
 Neither suite needs cloud credentials — the backend fakes its repositories and

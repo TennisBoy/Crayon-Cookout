@@ -27,7 +27,11 @@ def ready() -> dict:
         "status": "ok",
         "environment": settings.environment,
         "capabilities": {
-            "database": settings.supabase_configured,
+            # Designs and collectibles: direct PostgreSQL.
+            "database": settings.database_configured,
+            # Register, OTP, login, reset, refresh: Supabase Auth. Separate
+            # credential, so it can be down while the database is fine.
+            "auth": settings.supabase_configured,
             "vision": settings.vision_configured,
         },
     }

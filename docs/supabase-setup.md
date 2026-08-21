@@ -12,8 +12,9 @@ Budget about ten minutes.
 2. **New project**
    - **Name** — `crayon-cookout`
    - **Database password** — generate one and store it in your password
-     manager. You will not need it for the app (the backend authenticates with
-     an API key), but you cannot recover it later.
+     manager. **The app needs this**: designs and collectibles are reached over
+     direct SQL, and the password is embedded in `DATABASE_URL`. You cannot
+     recover it later, only reset it — and resetting means updating `.env`.
    - **Region** — pick the one nearest your Oracle VM. Every API call is a
      round trip; a mismatched region is the single easiest way to make the app
      feel slow.
@@ -36,15 +37,31 @@ Optional sample data, for development only:
 The seed attaches its rows to the oldest user in the project. Never run it
 against production.
 
-## 3. Collect the keys
+## 3. Collect the credentials
+
+The app needs two, covering different halves. Either can be missing without the
+other noticing — `/api/health/ready` reports `database` and `auth` separately.
+
+**Connect** (top of the dashboard) → **Session pooler**:
+
+| What | `.env` variable | Notes |
+|---|---|---|
+| Session pooler DSN | `DATABASE_URL` | Designs and collectibles. **Embeds the DB password — secret.** Add `?sslmode=require` |
+
+Do not use the direct `:5432` connection string. It is IPv6-only on newer
+projects, so from an IPv4 VM it hangs rather than reporting anything useful.
 
 **Project Settings → API**:
 
 | Dashboard label | `.env` variable | Notes |
 |---|---|---|
 | Project URL | `SUPABASE_URL` | `https://<ref>.supabase.co` |
-| `service_role` secret | `SUPABASE_SERVICE_ROLE_KEY` | **Backend only** |
+| `service_role` secret | `SUPABASE_SERVICE_ROLE_KEY` | Auth only. **Backend only.** Must be the legacy JWT (`eyJ…`) |
 | `anon` public | `SUPABASE_ANON_KEY` | Currently unused |
+
+`supabase==2.11.0` regex-checks that the key is JWT-shaped, so the newer
+`sb_secret_…` format raises `Invalid API key` at client construction — before
+any network call.
 
 ### About the service role key
 
@@ -124,8 +141,14 @@ stops paying off once several people are changing the schema at once.
 
 ## Troubleshooting
 
-**`"database": false`** — the backend sees no keys. Check for typos in `.env`,
-then `docker compose restart backend`. Values are read at container start.
+**`"database": false`** — `DATABASE_URL` is unset or empty. Check for typos in
+`.env`, then `docker compose up -d`. Values are read at container start.
+
+**`"auth": false`** — `SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` is unset.
+Designs still work; registration and login do not.
+
+**Requests hang instead of failing** — you used the direct `:5432` DSN on an
+IPv4-only host. Switch to the session pooler string.
 
 **Every API call returns 503** — same cause. The backend logs a warning at
 startup: `docker compose logs backend | head`.
