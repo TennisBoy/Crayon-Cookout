@@ -107,11 +107,15 @@ export const LOCKED_COLORS = [
   { name: 'Hot Pink', hex: '#FF1493' },
 ];
 
+// `aspect` is width / height of the box each clipPath was drawn for. The
+// crayon is tall; every other polygon assumes a square, and rendering one into
+// a 1:2 box stretches it into something unrecognisable. Consumers size their
+// box from this rather than hard-coding dimensions.
 export const SHAPES = {
-  crayon: { name: 'Classic Crayon', clipPath: 'polygon(20% 0, 80% 0, 80% 75%, 50% 100%, 20% 75%)', locked: false },
-  star: { name: 'Star', clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)', locked: true },
-  heart: { name: 'Heart', clipPath: 'polygon(50% 100%, 0% 42%, 0% 22%, 15% 5%, 35% 5%, 50% 22%, 65% 5%, 85% 5%, 100% 22%, 100% 42%)', locked: true },
-  diamond: { name: 'Diamond', clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)', locked: true },
-  hexagon: { name: 'Hexagon', clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', locked: true },
-  flower: { name: 'Flower', clipPath: 'polygon(50% 0%, 60% 25%, 85% 15%, 75% 40%, 100% 50%, 75% 60%, 85% 85%, 60% 75%, 50% 100%, 40% 75%, 15% 85%, 25% 60%, 0% 50%, 25% 40%, 15% 15%, 40% 25%)', locked: true },
+  crayon: { name: 'Classic Crayon', clipPath: 'polygon(20% 0, 80% 0, 80% 75%, 50% 100%, 20% 75%)', locked: false, aspect: 0.5 },
+  star: { name: 'Star', clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)', locked: true , aspect: 1 },
+  heart: { name: 'Heart', clipPath: 'polygon(50% 100%, 0% 42%, 0% 22%, 15% 5%, 35% 5%, 50% 22%, 65% 5%, 85% 5%, 100% 22%, 100% 42%)', locked: true , aspect: 1 },
+  diamond: { name: 'Diamond', clipPath: 'polygon(50% 0, 100% 50%, 50% 100%, 0 50%)', locked: true , aspect: 1 },
+  hexagon: { name: 'Hexagon', clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)', locked: true , aspect: 1 },
+  flower: { name: 'Flower', clipPath: 'polygon(50% 0%, 60% 25%, 85% 15%, 75% 40%, 100% 50%, 75% 60%, 85% 85%, 60% 75%, 50% 100%, 40% 75%, 15% 85%, 25% 60%, 0% 50%, 25% 40%, 15% 15%, 40% 25%)', locked: true , aspect: 1 },
 };
