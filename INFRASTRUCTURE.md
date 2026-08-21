@@ -112,6 +112,14 @@ to Cloudflare, so 80 and 443 stay shut.
 only; images are built in CI and pulled by tag. `docker-compose.yml` there has
 no `build:` section, and the image references are overridable:
 
+> **The compose file is version-controlled.** It lives at
+> [`deploy/docker-compose.prod.yml`](deploy/docker-compose.prod.yml) and is
+> pushed with `./scripts/push-compose.sh ubuntu@<vm-ip>`. Editing the VM's copy
+> by hand is how it drifted from the repo once already: three Stripe variables
+> were added to the reviewed file, never reached production, and a real payment
+> failed with a 503 that looked like a code bug. `tests/test_compose_parity.py`
+> now fails if the two files disagree about which variables the backend gets.
+
 ```
 BACKEND_IMAGE=ghcr.io/tennisboy/crayon-cookout-backend:<sha>
 FRONTEND_IMAGE=ghcr.io/tennisboy/crayon-cookout-frontend:<sha>
