@@ -165,7 +165,7 @@ class AuthService:
 
     # --- OAuth -------------------------------------------------------------
 
-    def oauth_authorize_url(self, provider: str, origin: str, return_to: str) -> str:
+    def oauth_authorize_url(self, provider: str, return_to: str) -> str:
         """Build the GoTrue authorize URL the browser should be sent to.
 
         Built here rather than in the SPA so the Supabase URL stays out of the
@@ -175,6 +175,11 @@ class AuthService:
         `return_to` is a PATH, never a URL. Accepting a full URL would make this
         an open redirect: an attacker could send a victim through our own
         domain to theirs, arriving with a real session in the fragment.
+
+        The callback ORIGIN comes from configuration, never from a request
+        header. Browsers omit `Origin` on same-origin GETs, so trusting it made
+        this endpoint reject every real call from the app; and a header would be
+        attacker-controlled even when present.
         """
         from urllib.parse import quote, urlencode
 
@@ -189,9 +194,13 @@ class AuthService:
         if not return_to.startswith("/") or return_to.startswith("//"):
             # "//evil.com" is protocol-relative and would leave the site.
             raise ValidationError("return_to must be a path on this site.")
-        if origin not in settings.cors_origin_list:
-            raise ValidationError("Unrecognised origin.")
+        site = settings.site_url
+        if not site:
+            raise ServiceUnavailableError(
+                "Social sign-in is not configured on this server.",
+                detail="PUBLIC_SITE_URL / CORS_ORIGINS are unset",
+            )
 
-        callback = f"{origin}/auth/callback?next={quote(return_to, safe='/')}"
+        callback = f"{site}/auth/callback?next={quote(return_to, safe='/')}"
         query = urlencode({"provider": provider, "redirect_to": callback})
         return f"{settings.supabase_url}/auth/v1/authorize?{query}"

@@ -113,7 +113,6 @@ def refresh(payload: RefreshRequest, auth: AuthDep) -> SessionOut:
 def oauth_authorize(
     provider: str,
     auth: AuthDep,
-    origin: Annotated[str | None, Header()] = None,
     return_to: Annotated[str, Query(max_length=512)] = "/home",
 ) -> OAuthUrlOut:
     """Return the URL that starts a social sign-in.
@@ -122,6 +121,4 @@ def oauth_authorize(
     top-level window itself, and a redirect issued to fetch() would be followed
     invisibly instead.
     """
-    return OAuthUrlOut(
-        url=auth.oauth_authorize_url(provider, origin or "", return_to)
-    )
+    return OAuthUrlOut(url=auth.oauth_authorize_url(provider, return_to))

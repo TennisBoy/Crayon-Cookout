@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = Field(default="")
     supabase_anon_key: str = Field(default="")
 
+    # --- Public site ---------------------------------------------------------
+    # Where the SPA is served from. Used to build OAuth callback URLs, which
+    # must not be derived from a request header: browsers omit Origin on
+    # same-origin GETs, and a header is attacker-controlled anyway.
+    public_site_url: str = Field(default="", description="https://example.com")
+
     # --- CORS --------------------------------------------------------------
     # Comma-separated list of exact origins. No wildcard in production.
     cors_origins: str = "http://localhost:5173"
@@ -69,6 +75,14 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def site_url(self) -> str:
+        """The app's public origin, with no trailing slash."""
+        raw = self.public_site_url or (
+            self.cors_origin_list[0] if self.cors_origin_list else ""
+        )
+        return raw.rstrip("/")
 
     @property
     def database_configured(self) -> bool:
