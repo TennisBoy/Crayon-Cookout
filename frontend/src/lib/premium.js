@@ -43,10 +43,6 @@ export function getTrialDaysLeft() {
   } catch { return 0; }
 }
 
-export function hasNoAds() {
-  return hasFeature('no_ads');
-}
-
 export function hasKitchenAccess() {
   return hasFeature('kitchen') || isTrialActive();
 }

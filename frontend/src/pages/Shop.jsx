@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { hasFeature, setFeature, isTrialActive, hasTrialUsed, startTrial, getTrialDaysLeft } from '@/lib/premium';
 import { motion } from 'framer-motion';
-import { ShieldCheck, FlaskConical, Check, Sparkles, Clock, Calendar } from 'lucide-react';
+import { FlaskConical, Check, Sparkles, Clock, Calendar } from 'lucide-react';
 
 export default function Shop() {
   const [state, setState] = useState({});
 
   const refresh = () => setState({
-    no_ads: hasFeature('no_ads'),
     kitchen: hasFeature('kitchen'),
     colouring: hasFeature('colouring'),
     trialActive: isTrialActive(),
@@ -52,14 +51,6 @@ export default function Shop() {
       )}
 
       <div className="space-y-4">
-        {/* No Ads Pass — $15 */}
-        <ProductCard
-          icon={ShieldCheck} gradient="from-blue-400 to-indigo-500"
-          title="No Ads Pass" price={15}
-          desc="Remove all ads forever — no pop-ups, ever!"
-          owned={state.no_ads} onBuy={() => handleBuy('no_ads')}
-        />
-
         {/* Full Kitchen + Colouring — $10 */}
         <ProductCard
           icon={FlaskConical} gradient="from-orange-400 to-red-500"
