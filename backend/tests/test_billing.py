@@ -156,3 +156,40 @@ def test_verification_failure_does_not_leak_stripe_detail(billing):
     ):
         billing.handle_webhook(b"{}", "sig")
     assert "secret leaked" not in str(exc.value)
+
+class FakeStripeSession:
+    """Stands in for stripe.checkout.Session.
+
+    The real object is NOT a dict and raises on .get(). The original tests
+    mocked plain dicts, so they passed against a webhook that could not work.
+    """
+
+    def __init__(self, data):
+        self._data = data
+
+    def to_dict(self):
+        return dict(self._data)
+
+    def get(self, *_args, **_kwargs):
+        raise AttributeError("'get' is a dict method, but a Session is not a dict.")
+
+
+def completed_event_typed(**overrides):
+    """The event shape stripe-python really produces."""
+    event = completed_event(**overrides)
+    event["data"]["object"] = FakeStripeSession(event["data"]["object"])
+    return event
+
+
+def test_grants_from_a_real_stripe_session_object(billing, entitlements):
+    """Regression: the object Stripe hands us is not a dict."""
+    with patch("stripe.Webhook.construct_event", return_value=completed_event_typed()):
+        assert billing.handle_webhook(b"{}", "sig") == "granted"
+    assert sorted(entitlements.list_features(TEST_USER.id)) == ["colouring", "kitchen"]
+
+
+def test_unpaid_session_object_grants_nothing(billing, entitlements):
+    event = completed_event_typed(payment_status="unpaid")
+    with patch("stripe.Webhook.construct_event", return_value=event):
+        assert billing.handle_webhook(b"{}", "sig") == "ignored"
+    assert entitlements.list_features(TEST_USER.id) == []
