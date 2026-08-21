@@ -1,24 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Minus, Plus, Trash2, Store } from 'lucide-react';
+import { Minus, Plus, Trash2, Store, FlaskConical, Clock, Check } from 'lucide-react';
 import { getCart, setQty, addToCart } from '@/lib/cart';
 import { findProduct } from '@/lib/catalog';
+import {
+  hasFeature,
+  isTrialActive,
+  hasTrialUsed,
+  getTrialDaysLeft,
+  refreshEntitlements,
+} from '@/lib/premium';
 
 /**
- * The crayon packs you mean to buy.
+ * Everything to do with buying: packs you mean to buy, and passes you already
+ * own.
  *
- * What you already *own* — the Kitchen + Colouring pass and the trial — is the
- * Shop's job: it badges an owned product and shows a running trial's days left.
- * Repeating that here would only create a second place for the two to disagree.
+ * An earlier version deliberately left ownership to the Shop, on the grounds
+ * that showing it twice creates two places to disagree. That risk is real, and
+ * the answer is not to hide it but to read the same state: both pages call
+ * hasFeature(), which reads the server-backed entitlement cache. Neither holds
+ * an opinion of its own, so they cannot drift.
+ *
+ * The passes are shown BELOW the basket. The basket is the part with unfinished
+ * business in it.
  */
 export default function Cart() {
   const [cart, setCart] = useState(getCart);
+  const [owned, setOwned] = useState(readOwned);
 
   useEffect(() => {
     const handler = () => setCart(getCart());
     window.addEventListener('cc-cart-change', handler);
     return () => window.removeEventListener('cc-cart-change', handler);
+  }, []);
+
+  useEffect(() => {
+    // This is the page someone opens straight after paying, which is exactly
+    // when a stale cache is most misleading. Ask the server.
+    refreshEntitlements().catch(() => {});
+    const handler = () => setOwned(readOwned());
+    window.addEventListener('cc-premium-change', handler);
+    return () => window.removeEventListener('cc-premium-change', handler);
   }, []);
 
   // A basket saved before a pack was withdrawn still holds that pack's id.
@@ -67,6 +90,82 @@ export default function Cart() {
             </Link>
           </div>
         </>
+      )}
+
+      <Passes owned={owned} />
+    </div>
+  );
+}
+
+/** Reads through premium.js, so the Shop and this page cannot disagree. */
+function readOwned() {
+  return {
+    pass: hasFeature('kitchen') && hasFeature('colouring'),
+    trialActive: isTrialActive(),
+    trialUsed: hasTrialUsed(),
+    trialDaysLeft: getTrialDaysLeft(),
+  };
+}
+
+function Passes({ owned }) {
+  return (
+    <section className="mt-10">
+      <h2 className="font-display font-bold text-xl text-gray-800 mb-3">Your passes 🔑</h2>
+      <div className="space-y-3">
+        <PassRow
+          icon={FlaskConical}
+          gradient="from-orange-400 to-red-500"
+          title="Full Kitchen + Colouring Access"
+          // The pass grants two features and is sold as one product: owning
+          // half of it is not a completed purchase.
+          live={owned.pass}
+          liveLabel="Active"
+          idleLabel="Not unlocked yet"
+        />
+        <PassRow
+          icon={Clock}
+          gradient="from-green-400 to-emerald-500"
+          title="Free Trial"
+          desc={
+            owned.trialActive
+              ? `${owned.trialDaysLeft} day${owned.trialDaysLeft !== 1 ? 's' : ''} left.`
+              : undefined
+          }
+          live={owned.trialActive}
+          liveLabel="Active"
+          idleLabel={owned.trialUsed ? 'Used' : 'Not started'}
+        />
+      </div>
+      {!owned.pass && (
+        <div className="text-center mt-4">
+          <Link to="/shop" className="text-sm text-purple-600 font-body hover:underline">
+            See what the Shop unlocks →
+          </Link>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PassRow({ icon: Icon, gradient, title, desc, live, liveLabel, idleLabel }) {
+  return (
+    <div className="bg-white rounded-3xl p-4 kid-shadow flex items-center gap-4">
+      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center flex-shrink-0`}>
+        <Icon className="w-6 h-6 text-white" />
+      </div>
+      <div className="flex-1">
+        <h3 className="font-display font-bold text-base text-gray-800">{title}</h3>
+        {desc && <p className="text-sm text-gray-500 font-body">{desc}</p>}
+      </div>
+      {live ? (
+        <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 font-semibold text-sm px-3 py-1.5 rounded-2xl">
+          <Check className="w-4 h-4" />
+          {liveLabel}
+        </span>
+      ) : (
+        <span className="inline-flex items-center bg-gray-100 text-gray-500 font-semibold text-sm px-3 py-1.5 rounded-2xl">
+          {idleLabel}
+        </span>
       )}
     </div>
   );
