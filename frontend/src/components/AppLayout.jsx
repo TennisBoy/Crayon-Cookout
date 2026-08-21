@@ -21,12 +21,12 @@ export default function AppLayout() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            to="/shop"
-            aria-label="Shop"
+            to="/cart"
+            aria-label="Cart"
             className="flex items-center gap-1.5 bg-white hover:bg-purple-50 text-purple-600 font-semibold px-3 py-2 rounded-2xl kid-shadow border border-purple-100 transition-colors"
           >
             <ShoppingCart className="w-5 h-5" />
-            <span className="hidden sm:inline">Shop</span>
+            <span className="hidden sm:inline">Cart</span>
           </Link>
           <Link to="/library" className="flex items-center gap-1.5 bg-amber-400 hover:bg-amber-500 text-white font-semibold px-3 py-2 rounded-2xl kid-shadow transition-colors">
             <BookMarked className="w-5 h-5" />

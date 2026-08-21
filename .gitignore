@@ -43,3 +43,6 @@ backend/.pytest_cache/
 
 # Infra
 .env
+
+# Worktrees created by Claude Code sessions — never part of the tree.
+.claude/worktrees/
