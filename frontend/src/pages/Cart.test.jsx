@@ -1,6 +1,6 @@
-// The Cart used to answer "did my purchase go through?"; that question now
-// belongs to the Shop, which badges an owned pass directly. What the Cart owes
-// its user is a truthful count and a truthful total.
+// The Cart carries both halves of buying: packs you mean to buy, and passes you
+// already own. What it owes its user is a truthful count, a truthful total, and
+// an honest answer to "did my purchase go through?".
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -89,5 +89,67 @@ describe('Cart', () => {
     // The subtotal counts the surviving pack only, not the ghost's 3.
     const subtotalRow = screen.getByText('Subtotal').closest('div')
     expect(within(subtotalRow).getByText('$8.99')).toBeInTheDocument()
+  })
+})
+
+describe('Cart — passes you own', () => {
+  const setEntitlements = (features) =>
+    localStorage.setItem('cc_entitlements', JSON.stringify(features))
+
+  it('says the pass is not unlocked for a new user', () => {
+    renderCart()
+    expect(screen.getByText('Not unlocked yet')).toBeInTheDocument()
+    expect(screen.getByText('Not started')).toBeInTheDocument()
+  })
+
+  it('marks the pass Active once both features are owned', () => {
+    setEntitlements(['kitchen', 'colouring'])
+    renderCart()
+    expect(screen.getByText('Active')).toBeInTheDocument()
+    expect(screen.queryByText('Not unlocked yet')).not.toBeInTheDocument()
+  })
+
+  it('does not call half a purchase Active', () => {
+    // The pass grants two features and is sold as one product.
+    setEntitlements(['kitchen'])
+    renderCart()
+    expect(screen.getByText('Not unlocked yet')).toBeInTheDocument()
+  })
+
+  it('reads the server-backed cache, not a client-set flag alone', () => {
+    setEntitlements(['kitchen', 'colouring'])
+    renderCart()
+    // Nothing wrote cc_kitchen; ownership came from the entitlements cache.
+    expect(localStorage.getItem('cc_kitchen')).toBeNull()
+    expect(screen.getByText('Active')).toBeInTheDocument()
+  })
+
+  it('shows days remaining while a trial runs', () => {
+    localStorage.setItem('cc_trial_expiry', String(Date.now() + 3 * 86400000))
+    renderCart()
+    expect(screen.getByText(/3 days left/)).toBeInTheDocument()
+  })
+
+  it('shows the passes even when the basket is empty', () => {
+    renderCart()
+    expect(screen.getByText(/No packs in your cart yet/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Your passes/ })).toBeInTheDocument()
+  })
+
+  it('still shows the packs alongside them', () => {
+    seed({ 'rainbow-pack': 1 })
+    renderCart()
+    expect(screen.getByText('Subtotal')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Your passes/ })).toBeInTheDocument()
+  })
+
+  it('points at the Shop only while the pass is unowned', () => {
+    renderCart()
+    expect(screen.getByRole('link', { name: /See what the Shop unlocks/ })).toBeInTheDocument()
+
+    localStorage.clear()
+    setEntitlements(['kitchen', 'colouring'])
+    renderCart()
+    expect(screen.getAllByRole('link', { name: /See what the Shop unlocks/ })).toHaveLength(1)
   })
 })
