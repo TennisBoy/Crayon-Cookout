@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { getCurrentUser, signOut, redirectToLogin } from '@/lib/adapters/auth';
 import { refreshEntitlements, clearEntitlements } from '@/lib/adapters/entitlements';
+import { applyUserScope } from '@/lib/userScope';
 
 const AuthContext = createContext();
 
@@ -19,6 +20,9 @@ export const AuthProvider = ({ children }) => {
     setIsLoadingAuth(true);
     try {
       const currentUser = await getCurrentUser();
+      // Before anything reads local state: drop whatever belonged to a
+      // different account on this browser.
+      applyUserScope(currentUser?.id ?? null);
       setUser(currentUser);
       setIsAuthenticated(true);
       // Entitlements belong to a user, so this is the moment to fetch them.
@@ -28,6 +32,7 @@ export const AuthProvider = ({ children }) => {
     } catch {
       setUser(null);
       setIsAuthenticated(false);
+      applyUserScope(null);
       clearEntitlements();
     } finally {
       setIsLoadingAuth(false);
@@ -50,6 +55,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback((shouldRedirect = true) => {
     setUser(null);
     setIsAuthenticated(false);
+    applyUserScope(null);
     clearEntitlements();
     signOut(shouldRedirect ? window.location.href : undefined).catch(() => {});
   }, []);
