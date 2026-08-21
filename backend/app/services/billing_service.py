@@ -54,6 +54,11 @@ class BillingService:
                 line_items=[{"price": settings.stripe_price_id, "quantity": 1}],
                 client_reference_id=user_id,
                 customer_email=email or None,
+                # Lets a 100%-off promotion code make a purchase free without a
+                # bypass in our own code. The payment still goes through Stripe
+                # and the webhook still does the granting, so a comp follows the
+                # same path as a sale and shows up in Stripe's records.
+                allow_promotion_codes=True,
                 success_url=f"{settings.site_url}/cart?checkout=success",
                 cancel_url=f"{settings.site_url}/shop?checkout=cancelled",
             )
