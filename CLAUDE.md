@@ -103,6 +103,14 @@ instantly and survive an outage — the server is the source of truth. Still pur
 local: `cc_trial_expiry`, `cc_trial_used`, and `cc_access_token` (the session
 token, managed by `lib/api/client.ts`).
 
+**Purchases are a redirect to Stripe.** `POST /api/billing/checkout` returns a
+hosted Checkout URL; the browser never sees a Stripe key and no card data
+touches this app. The grant happens only in `POST /api/billing/webhook`, which
+verifies Stripe's signature — that check is the entire security model, and
+without `STRIPE_WEBHOOK_SECRET` the endpoint refuses rather than trusting the
+caller. A parent gate sits in front of the buy button; it is not security, it
+stops a child reaching checkout by tapping a bright button.
+
 **Entitlements are server-authoritative.** `hasFeature()` reads the
 `cc_entitlements` cache first and falls back to the old `cc_<feature>` flag,
 which the trial still writes. There is deliberately **no endpoint that grants**

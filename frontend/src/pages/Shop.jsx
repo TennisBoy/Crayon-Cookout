@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { hasFeature, setFeature, isTrialActive, hasTrialUsed, startTrial, getTrialDaysLeft } from '@/lib/premium';
+import { hasFeature, isTrialActive, hasTrialUsed, startTrial, getTrialDaysLeft, refreshEntitlements } from '@/lib/premium';
+import { startCheckout } from '@/lib/adapters/billing';
+import ParentGate from '@/components/ParentGate';
 import { motion } from 'framer-motion';
 import { FlaskConical, Check, Sparkles, Clock, Calendar } from 'lucide-react';
 
 export default function Shop() {
   const [state, setState] = useState({});
+  const [gateOpen, setGateOpen] = useState(false);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const refresh = () => setState({
     kitchen: hasFeature('kitchen'),
@@ -16,14 +21,29 @@ export default function Shop() {
 
   useEffect(() => {
     refresh();
+    // Returning from a cancelled checkout, or arriving after paying: ask the
+    // server rather than trusting whatever the cache last held.
+    refreshEntitlements().catch(() => {});
     const handler = () => refresh();
     window.addEventListener('cc-premium-change', handler);
     return () => window.removeEventListener('cc-premium-change', handler);
   }, []);
 
-  const handleBuy = (id) => {
-    setFeature(id, true);
-    refresh();
+  // Buying is a redirect to Stripe. Nothing is granted here: the entitlement
+  // is written server-side by the webhook once payment is verified, which is
+  // why a purchase cannot be faked from the browser any more.
+  const handleBuy = () => {
+    setError(null);
+    setGateOpen(true);
+  };
+
+  const handleGatePass = () => {
+    setGateOpen(false);
+    setBusy(true);
+    startCheckout().catch((err) => {
+      setBusy(false);
+      setError(err.message);
+    });
   };
 
   const handleTrial = () => {
@@ -50,13 +70,19 @@ export default function Shop() {
         </div>
       )}
 
+      {error && (
+        <div role="alert" className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 mb-4">
+          <p className="text-sm text-red-600 font-body">{error}</p>
+        </div>
+      )}
+
       <div className="space-y-4">
         {/* Full Kitchen + Colouring — $10 */}
         <ProductCard
           icon={FlaskConical} gradient="from-orange-400 to-red-500"
           title="Full Kitchen + Colouring Access" price={10}
           desc="Unlock 30 extra colours, colour picker, all mould shapes & premium colouring sheets!"
-          owned={state.kitchen && state.colouring} onBuy={() => { handleBuy('kitchen'); handleBuy('colouring'); }}
+          owned={state.kitchen && state.colouring} onBuy={handleBuy} busy={busy}
         />
 
         {/* Free Trial — $5 for 1 month, once */}
@@ -99,11 +125,15 @@ export default function Shop() {
           All purchases are one-time only — no subscriptions, no repeating charges. Buy once, keep forever! 💜
         </p>
       </div>
+
+      {gateOpen && (
+        <ParentGate onPass={handleGatePass} onCancel={() => setGateOpen(false)} />
+      )}
     </div>
   );
 }
 
-function ProductCard({ icon: Icon, gradient, title, price, desc, owned, onBuy }) {
+function ProductCard({ icon: Icon, gradient, title, price, desc, owned, onBuy, busy }) {
   return (
     <motion.div
       initial={{ x: -20, opacity: 0 }}
@@ -126,9 +156,10 @@ function ProductCard({ icon: Icon, gradient, title, price, desc, owned, onBuy })
         ) : (
           <button
             onClick={onBuy}
-            className="bg-purple-500 hover:bg-purple-600 text-white font-semibold px-5 py-2.5 rounded-2xl kid-shadow transition-colors"
+            disabled={busy}
+            className="bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 text-white font-semibold px-5 py-2.5 rounded-2xl kid-shadow transition-colors"
           >
-            Buy Now
+            {busy ? 'Opening…' : 'Buy Now'}
           </button>
         )}
       </div>

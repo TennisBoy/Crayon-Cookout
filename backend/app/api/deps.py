@@ -7,6 +7,7 @@ from app.core.errors import AuthError
 from app.core.rate_limit import Limit, limiter
 from app.schemas.auth import UserOut
 from app.services.auth_service import AuthService
+from app.services.billing_service import BillingService
 from app.services.designs_service import DesignsService
 from app.services.entitlements_service import EntitlementsService
 
@@ -21,6 +22,10 @@ def get_designs_service() -> DesignsService:
 
 def get_entitlements_service() -> EntitlementsService:
     return EntitlementsService()
+
+
+def get_billing_service() -> BillingService:
+    return BillingService()
 
 
 def _bearer(authorization: str | None) -> str:
@@ -46,6 +51,7 @@ DesignsDep = Annotated[DesignsService, Depends(get_designs_service)]
 EntitlementsDep = Annotated[
     EntitlementsService, Depends(get_entitlements_service)
 ]
+BillingDep = Annotated[BillingService, Depends(get_billing_service)]
 
 
 def client_key(request: Request) -> str:
