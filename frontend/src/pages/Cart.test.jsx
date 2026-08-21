@@ -1,77 +1,93 @@
-// The Cart answers "did my purchase go through?", so what it must never do is
-// claim something is active when it isn't.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+// The Cart used to answer "did my purchase go through?"; that question now
+// belongs to the Shop, which badges an owned pass directly. What the Cart owes
+// its user is a truthful count and a truthful total.
+import { describe, it, expect, beforeEach } from 'vitest'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import Cart from '@/pages/Cart'
+import { getCart } from '@/lib/cart'
 
-const refreshEntitlements = vi.fn(() => Promise.resolve([]))
-const state = { features: [], trialActive: false, trialUsed: false, trialDays: 0 }
-
-vi.mock('@/lib/premium', () => ({
-  hasFeature: (f) => state.features.includes(f),
-  isTrialActive: () => state.trialActive,
-  hasTrialUsed: () => state.trialUsed,
-  getTrialDaysLeft: () => state.trialDays,
-  refreshEntitlements: (...a) => refreshEntitlements(...a),
-}))
-
-const Cart = (await import('@/pages/Cart')).default
-
+const seed = (cart) => localStorage.setItem('cc_cart', JSON.stringify(cart))
 const renderCart = () => render(<Cart />, { wrapper: MemoryRouter })
+const stepper = (name) => screen.getByRole('group', { name: `${name} quantity` })
 
-beforeEach(() => {
-  state.features = []
-  state.trialActive = false
-  state.trialUsed = false
-  state.trialDays = 0
-  refreshEntitlements.mockClear()
-})
+beforeEach(() => localStorage.clear())
 
 describe('Cart', () => {
-  it('shows nothing unlocked for a new user', () => {
+  it('invites you to the shop when nothing is in the basket', () => {
     renderCart()
-    expect(screen.getByText('Not unlocked yet')).toBeInTheDocument()
-    expect(screen.getByText('Not started')).toBeInTheDocument()
-    expect(screen.queryByText('Active')).not.toBeInTheDocument()
+    expect(screen.getByText('No packs in your cart yet!')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Browse crayon packs/i })).toHaveAttribute('href', '/purchase')
   })
 
-  it('marks the pass Active only when BOTH features are owned', () => {
-    state.features = ['kitchen'] // half a purchase is not a purchase
+  it('lists a line for each pack, with its quantity', () => {
+    seed({ 'rainbow-pack': 2, 'sunset-set': 1 })
     renderCart()
-    expect(screen.getByText('Not unlocked yet')).toBeInTheDocument()
+
+    expect(screen.getByText('Rainbow Pack')).toBeInTheDocument()
+    expect(screen.getByText('Sunset Set')).toBeInTheDocument()
+    expect(within(stepper('Rainbow Pack')).getByText('2')).toBeInTheDocument()
+    expect(screen.queryByText('No packs in your cart yet!')).not.toBeInTheDocument()
   })
 
-  it('marks the pass Active when both are owned', () => {
-    state.features = ['kitchen', 'colouring']
+  it('totals a line by quantity and the basket by line', () => {
+    seed({ 'rainbow-pack': 2, 'sunset-set': 1 }) // 8.99*2 + 6.99 = 24.97
     renderCart()
-    expect(screen.getAllByText('Active').length).toBe(1)
-    expect(screen.queryByText('Not unlocked yet')).not.toBeInTheDocument()
+
+    expect(screen.getByText('$17.98')).toBeInTheDocument() // the Rainbow line
+    expect(screen.getByText('$24.97')).toBeInTheDocument() // the subtotal
   })
 
-  it('shows days left while a trial runs', () => {
-    state.trialActive = true
-    state.trialDays = 12
+  it('counts packs, not lines, in the summary', () => {
+    seed({ 'rainbow-pack': 2, 'sunset-set': 1 })
     renderCart()
-    expect(screen.getByText(/12 days of full access left/)).toBeInTheDocument()
+    expect(screen.getByText('3 packs ready to go.')).toBeInTheDocument()
   })
 
-  it('says the trial is used up once it has been', () => {
-    state.trialUsed = true
+  it('says "pack" rather than "packs" for a single one', () => {
+    seed({ 'rainbow-pack': 1 })
     renderCart()
-    expect(screen.getByText('Used')).toBeInTheDocument()
+    expect(screen.getByText('1 pack ready to go.')).toBeInTheDocument()
   })
 
-  it('re-asks the server rather than trusting the cache', () => {
+  it('adds and removes one at a time from the line', () => {
+    seed({ 'rainbow-pack': 2 })
     renderCart()
-    expect(refreshEntitlements).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByLabelText('Add one Rainbow Pack'))
+    expect(getCart()['rainbow-pack']).toBe(3)
+
+    fireEvent.click(screen.getByLabelText('Remove one Rainbow Pack'))
+    expect(getCart()['rainbow-pack']).toBe(2)
   })
 
-  it('offers the Shop only when the pass is not owned', () => {
+  it('drops the line entirely when the last one is removed', () => {
+    seed({ 'rainbow-pack': 1 })
     renderCart()
-    expect(screen.getByRole('link', { name: /Go to the Shop/i })).toHaveAttribute('href', '/shop')
 
-    state.features = ['kitchen', 'colouring']
+    fireEvent.click(screen.getByLabelText('Remove one Rainbow Pack'))
+    expect(getCart()).toEqual({})
+    expect(screen.getByText('No packs in your cart yet!')).toBeInTheDocument()
+  })
+
+  it('empties a whole line from the bin button', () => {
+    seed({ 'rainbow-pack': 4, 'sunset-set': 1 })
     renderCart()
-    expect(screen.getAllByRole('link', { name: /Go to the Shop/i })).toHaveLength(1)
+
+    fireEvent.click(screen.getByLabelText('Remove Rainbow Pack from cart'))
+    expect(getCart()).toEqual({ 'sunset-set': 1 })
+  })
+
+  // A basket can outlive the pack it holds; that must not blank the page.
+  it('skips a pack that is no longer sold', () => {
+    seed({ 'rainbow-pack': 1, 'discontinued-pack': 3 })
+    renderCart()
+
+    expect(screen.getByText('Rainbow Pack')).toBeInTheDocument()
+    expect(screen.getByText('1 pack ready to go.')).toBeInTheDocument()
+
+    // The subtotal counts the surviving pack only, not the ghost's 3.
+    const subtotalRow = screen.getByText('Subtotal').closest('div')
+    expect(within(subtotalRow).getByText('$8.99')).toBeInTheDocument()
   })
 })
