@@ -17,6 +17,7 @@ import Library from './pages/Library';
 import AppLayout from './components/AppLayout';
 import ProtectedRoute from './components/ProtextedRoute';
 import AuthCallback from './pages/AuthCallback';
+import Cart from './pages/Cart';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -57,6 +58,7 @@ const AuthenticatedApp = () => {
         <Route path="/purchase" element={<Purchase />} />
         <Route path="/colouring-lab" element={<ColouringLab />} />
         <Route path="/shop" element={<Shop />} />
+        <Route path="/cart" element={<Cart />} />
 
         {/* API-backed pages. Without this guard a signed-out visitor gets a
             401 and an empty screen instead of being asked to log in. */}
