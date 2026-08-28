@@ -19,8 +19,8 @@ from app.services.entitlements_service import EntitlementsService
 from tests.conftest import TEST_USER
 from tests.test_entitlements import FakeEntitlementsRepository
 
-BASKET = {"rainbow-pack": 2, "ocean-bundle": 1}
-EXPECTED_TOTAL = 899 * 2 + 749
+BASKET = {"meow-mix-6": 2, "turtle-time-12": 1}
+EXPECTED_TOTAL = 299 * 2 + 549
 
 
 @pytest.fixture
@@ -56,14 +56,27 @@ def test_the_server_prices_the_basket(billing):
     assert quote["currency"] == "cad"
 
 
+def test_a_twelve_undercuts_two_sixes(billing):
+    """The 12 is the offer. If it ever costs more, buying it is a penalty.
+
+    The saving is 49c rather than a round 50 because $5.49 is the shelf price
+    we chose; the shelf advertises the 49 it actually gives.
+    """
+    for pack in BY_ID.values():
+        if not pack.id.endswith("-12"):
+            continue
+        six = BY_ID[pack.id[: -len("-12")] + "-6"]
+        assert six.price_cents * 2 - pack.price_cents == 49, pack.id
+
+
 def test_a_price_sent_by_the_client_is_ignored(client):
     """The body carries ids and counts. There is nowhere to put a price."""
     res = client.post(
         "/api/billing/preorder/quote",
-        json={"basket": {"rainbow-pack": 1}, "total_cents": 1, "price": 1},
+        json={"basket": {"meow-mix-6": 1}, "total_cents": 1, "price": 1},
     )
     assert res.status_code == 200
-    assert res.json()["total_cents"] == BY_ID["rainbow-pack"].price_cents
+    assert res.json()["total_cents"] == BY_ID["meow-mix-6"].price_cents
 
 
 def test_an_unknown_pack_is_refused(billing):
@@ -80,7 +93,7 @@ def test_an_empty_basket_is_refused(billing):
 def test_absurd_quantities_are_refused(billing, qty):
     """A stuck button must not commit a child to hundreds of packs."""
     with pytest.raises(ValidationError):
-        billing.quote_basket({"rainbow-pack": qty})
+        billing.quote_basket({"meow-mix-6": qty})
 
 
 def test_too_many_packs_overall_is_refused(billing):
@@ -114,7 +127,7 @@ def test_the_session_carries_what_to_ship_and_charge(billing):
     meta = create.call_args.kwargs["metadata"]
     assert meta["kind"] == "preorder"
     assert meta["total_cents"] == str(EXPECTED_TOTAL)
-    assert "Rainbow Pack x2" in meta["packs"]
+    assert "Meow Mix 6-pack x2" in meta["packs"]
     assert meta["dispatch_by"] == DISPATCH_BY
 
 

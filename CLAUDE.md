@@ -10,7 +10,7 @@ commands from `frontend/`, python commands from `backend/`.
 
 ```bash
 cd frontend && npm install && npm run dev    # SPA on :5173
-cd frontend && npm test                      # 177 tests
+cd frontend && npm test                      # 199 tests
 cd frontend && npm run build                 # production bundle
 cd frontend && npm run lint                  # must exit 0
 cd frontend && npm run typecheck             # tsc --noEmit
@@ -19,7 +19,7 @@ cd frontend && npm run verify                # all four, in order
 cd backend && python -m venv .venv
 cd backend && .venv/Scripts/pip install -r requirements-dev.txt  # .venv/bin on Linux
 cd backend && .venv/Scripts/uvicorn app.main:app --reload   # API on :8000
-cd backend && .venv/Scripts/python -m pytest  # 118 tests
+cd backend && .venv/Scripts/python -m pytest  # 134 tests
 cd backend && ruff check .                   # must pass
 
 docker compose up -d --build                 # whole stack, LOCAL dev only

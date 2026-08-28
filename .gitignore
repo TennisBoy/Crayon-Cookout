@@ -46,3 +46,6 @@ backend/.pytest_cache/
 
 # Worktrees created by Claude Code sessions — never part of the tree.
 .claude/worktrees/
+
+# Superpowers brainstorming scratch (visual companion mockups)
+.superpowers/

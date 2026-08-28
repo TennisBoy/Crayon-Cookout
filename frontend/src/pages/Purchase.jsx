@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Trophy, MapPin, Search, Star, Calendar, Sparkles, Minus, Plus } from 'lucide-react';
-import { PRODUCTS } from '@/lib/catalog';
+import { Trophy, MapPin, Search, Star, Calendar, Sparkles, Minus, Plus, ShoppingCart } from 'lucide-react';
+import { SETS, sizesOf, BULK_SAVING } from '@/lib/catalog';
 import { getCart, addToCart, setQty } from '@/lib/cart';
 
 const CONTEST_WINNER = {
@@ -86,9 +87,10 @@ export default function Purchase() {
                 <h3 className="font-display font-bold text-xl text-amber-900">{CONTEST_WINNER.name}</h3>
                 <p className="text-sm text-amber-800 font-body">by {CONTEST_WINNER.designer}</p>
                 <p className="text-sm text-amber-800 font-body mt-1">{CONTEST_WINNER.desc}</p>
-                <button className="mt-2 bg-amber-800 hover:bg-amber-900 text-white text-sm font-semibold px-4 py-2 rounded-full">
-                  Add to Cart
-                </button>
+                {/* No button here on purpose. The winning design is not a pack
+                    you can buy — it is made and shipped to the child who drew
+                    it — and a button that looked like the ones below but did
+                    nothing read as broken rather than as unavailable. */}
               </div>
             </div>
           </motion.div>
@@ -128,56 +130,9 @@ export default function Purchase() {
           {/* Online Inventory */}
           <div>
             <h2 className="font-display font-bold text-xl text-gray-800 mb-3">Online Inventory</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {PRODUCTS.map((p, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-white rounded-2xl p-4 kid-shadow hover:scale-[1.03] transition-transform"
-                >
-                  <div className="flex items-end justify-center gap-1 h-16 mb-2">
-                    {p.colors.map((c, j) => (
-                      <div key={j} className="w-3 rounded-t" style={{ background: c, height: '70%' }} />
-                    ))}
-                  </div>
-                  <h3 className="font-body font-semibold text-sm text-gray-700 text-center">{p.name}</h3>
-                  <p className="font-display font-bold text-green-600 text-center">${p.price}</p>
-                  <button
-                    onClick={() => addToCart(p.id)}
-                    className="w-full mt-2 bg-purple-500 hover:bg-purple-600 text-white text-xs font-semibold py-2 rounded-full"
-                  >
-                    Add to Cart
-                  </button>
-                  {/* How many of this pack are in the basket right now. Always
-                      rendered, so the cards in the grid keep a common height
-                      instead of jumping as things are added. */}
-                  <div
-                    role="group"
-                    aria-label={`${p.name} quantity`}
-                    className="flex items-center justify-center gap-3 mt-2"
-                  >
-                    <button
-                      onClick={() => setQty(p.id, (cart[p.id] || 0) - 1)}
-                      disabled={!cart[p.id]}
-                      aria-label={`Remove one ${p.name}`}
-                      className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 disabled:opacity-40 disabled:hover:bg-gray-100 transition-colors"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="font-display font-bold text-sm text-gray-700 w-5 text-center">
-                      {cart[p.id] || 0}
-                    </span>
-                    <button
-                      onClick={() => addToCart(p.id)}
-                      aria-label={`Add one ${p.name}`}
-                      className="w-7 h-7 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center hover:bg-purple-200 transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </motion.div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {SETS.map((set, i) => (
+                <SetCard key={set.slug} set={set} cart={cart} delay={i * 0.05} />
               ))}
             </div>
           </div>
@@ -239,6 +194,98 @@ export default function Purchase() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+/**
+ * One design, sold in two sizes.
+ *
+ * The card is the whole set rather than one sellable id, because the 6 and the
+ * 12 of a design are the same crayons — showing them as two separate tiles
+ * would read as two products and bury the fact that the 12 is the better deal.
+ */
+function SetCard({ set, cart, delay }) {
+  const sizes = sizesOf(set.slug);
+  const inBasket = sizes.reduce((total, p) => total + (cart[p.id] || 0), 0);
+
+  return (
+    <motion.div
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ delay }}
+      className="bg-white rounded-2xl p-4 kid-shadow hover:scale-[1.03] transition-transform"
+    >
+      <div className="flex items-end justify-center gap-1 h-16 mb-2">
+        {set.colors.map((c, j) => (
+          <div key={j} className="w-3 rounded-t" style={{ background: c, height: '70%' }} />
+        ))}
+      </div>
+      <h3 className="font-body font-semibold text-sm text-gray-700 text-center">
+        {set.name} {set.emoji}
+      </h3>
+
+      <div className="mt-2">
+        {sizes.map((p) => (
+          <SizeRow key={p.id} product={p} qty={cart[p.id] || 0} />
+        ))}
+      </div>
+
+      {/* Where "Add to Cart" used to be. There is nothing to add from here any
+          more — the steppers do that — so the slot is a way OUT of the shop,
+          and only once there is something to go and look at. The empty case
+          keeps the height so the grid does not jump as packs are added. */}
+      {inBasket > 0 ? (
+        <Link
+          to="/cart"
+          className="w-full mt-3 h-9 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-full flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <ShoppingCart className="w-3.5 h-3.5" />
+          Go to Cart
+        </Link>
+      ) : (
+        <div className="mt-3 h-9" aria-hidden="true" />
+      )}
+    </motion.div>
+  );
+}
+
+/** One buyable size: what you get, what it costs, and how many you want. */
+function SizeRow({ product, qty }) {
+  return (
+    <div
+      role="group"
+      aria-label={`${product.name} quantity`}
+      className="flex items-center justify-between gap-2 py-1.5 border-t border-gray-100"
+    >
+      <div className="min-w-0">
+        <p className="font-body text-xs text-gray-500 leading-tight">{product.count} crayons</p>
+        {product.count === 12 && (
+          <p className="text-[10px] font-semibold text-amber-700">
+            save {Math.round(BULK_SAVING * 100)}¢
+          </p>
+        )}
+      </div>
+      <span className="font-display font-bold text-sm text-green-600">
+        ${product.price.toFixed(2)}
+      </span>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={() => setQty(product.id, qty - 1)}
+          disabled={!qty}
+          aria-label={`Remove one ${product.name}`}
+          className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 disabled:opacity-40 disabled:hover:bg-gray-100 transition-colors"
+        >
+          <Minus className="w-3.5 h-3.5" />
+        </button>
+        <span className="font-display font-bold text-sm text-gray-700 w-5 text-center">{qty}</span>
+        <button
+          onClick={() => addToCart(product.id)}
+          aria-label={`Add one ${product.name}`}
+          className="w-7 h-7 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center hover:bg-purple-200 transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 }

@@ -24,77 +24,77 @@ describe('Cart', () => {
   })
 
   it('lists a line for each pack, with its quantity', () => {
-    seed({ 'rainbow-pack': 2, 'sunset-set': 1 })
+    seed({ 'meow-mix-6': 2, 'turtle-time-12': 1 })
     renderCart()
 
-    expect(screen.getByText('Rainbow Pack')).toBeInTheDocument()
-    expect(screen.getByText('Sunset Set')).toBeInTheDocument()
-    expect(within(stepper('Rainbow Pack')).getByText('2')).toBeInTheDocument()
+    expect(screen.getByText('Meow Mix 6-pack')).toBeInTheDocument()
+    expect(screen.getByText('Turtle Time 12-pack')).toBeInTheDocument()
+    expect(within(stepper('Meow Mix 6-pack')).getByText('2')).toBeInTheDocument()
     expect(screen.queryByText('No packs in your cart yet!')).not.toBeInTheDocument()
   })
 
   it('totals a line by quantity and the basket by line', () => {
-    seed({ 'rainbow-pack': 2, 'sunset-set': 1 }) // 8.99*2 + 6.99 = 24.97
+    seed({ 'meow-mix-6': 2, 'turtle-time-12': 1 }) // 2.99*2 + 5.49 = 11.47
     renderCart()
 
-    expect(screen.getByText('$17.98')).toBeInTheDocument() // the Rainbow line
+    expect(screen.getByText('$5.98')).toBeInTheDocument() // the Meow Mix line
     // The pre-order notice repeats the total, so pin the subtotal row itself
     // rather than "somewhere on the page".
     const subtotalRow = screen.getByText('Subtotal').closest('div')
-    expect(within(subtotalRow).getByText('$24.97')).toBeInTheDocument()
+    expect(within(subtotalRow).getByText('$11.47')).toBeInTheDocument()
   })
 
   it('counts packs, not lines, in the summary', () => {
-    seed({ 'rainbow-pack': 2, 'sunset-set': 1 })
+    seed({ 'meow-mix-6': 2, 'turtle-time-12': 1 })
     renderCart()
     expect(screen.getByText('3 packs ready to go.')).toBeInTheDocument()
   })
 
   it('says "pack" rather than "packs" for a single one', () => {
-    seed({ 'rainbow-pack': 1 })
+    seed({ 'meow-mix-6': 1 })
     renderCart()
     expect(screen.getByText('1 pack ready to go.')).toBeInTheDocument()
   })
 
   it('adds and removes one at a time from the line', () => {
-    seed({ 'rainbow-pack': 2 })
+    seed({ 'meow-mix-6': 2 })
     renderCart()
 
-    fireEvent.click(screen.getByLabelText('Add one Rainbow Pack'))
-    expect(getCart()['rainbow-pack']).toBe(3)
+    fireEvent.click(screen.getByLabelText('Add one Meow Mix 6-pack'))
+    expect(getCart()['meow-mix-6']).toBe(3)
 
-    fireEvent.click(screen.getByLabelText('Remove one Rainbow Pack'))
-    expect(getCart()['rainbow-pack']).toBe(2)
+    fireEvent.click(screen.getByLabelText('Remove one Meow Mix 6-pack'))
+    expect(getCart()['meow-mix-6']).toBe(2)
   })
 
   it('drops the line entirely when the last one is removed', () => {
-    seed({ 'rainbow-pack': 1 })
+    seed({ 'meow-mix-6': 1 })
     renderCart()
 
-    fireEvent.click(screen.getByLabelText('Remove one Rainbow Pack'))
+    fireEvent.click(screen.getByLabelText('Remove one Meow Mix 6-pack'))
     expect(getCart()).toEqual({})
     expect(screen.getByText('No packs in your cart yet!')).toBeInTheDocument()
   })
 
   it('empties a whole line from the bin button', () => {
-    seed({ 'rainbow-pack': 4, 'sunset-set': 1 })
+    seed({ 'meow-mix-6': 4, 'turtle-time-12': 1 })
     renderCart()
 
-    fireEvent.click(screen.getByLabelText('Remove Rainbow Pack from cart'))
-    expect(getCart()).toEqual({ 'sunset-set': 1 })
+    fireEvent.click(screen.getByLabelText('Remove Meow Mix 6-pack from cart'))
+    expect(getCart()).toEqual({ 'turtle-time-12': 1 })
   })
 
   // A basket can outlive the pack it holds; that must not blank the page.
   it('skips a pack that is no longer sold', () => {
-    seed({ 'rainbow-pack': 1, 'discontinued-pack': 3 })
+    seed({ 'meow-mix-6': 1, 'discontinued-pack': 3 })
     renderCart()
 
-    expect(screen.getByText('Rainbow Pack')).toBeInTheDocument()
+    expect(screen.getByText('Meow Mix 6-pack')).toBeInTheDocument()
     expect(screen.getByText('1 pack ready to go.')).toBeInTheDocument()
 
     // The subtotal counts the surviving pack only, not the ghost's 3.
     const subtotalRow = screen.getByText('Subtotal').closest('div')
-    expect(within(subtotalRow).getByText('$8.99')).toBeInTheDocument()
+    expect(within(subtotalRow).getByText('$2.99')).toBeInTheDocument()
   })
 })
 
@@ -143,7 +143,7 @@ describe('Cart — passes you own', () => {
   })
 
   it('still shows the packs alongside them', () => {
-    seed({ 'rainbow-pack': 1 })
+    seed({ 'meow-mix-6': 1 })
     renderCart()
     expect(screen.getByText('Subtotal')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Your passes/ })).toBeInTheDocument()
@@ -169,20 +169,20 @@ describe('Cart — pre-ordering', () => {
   }
 
   it('says plainly that nothing is charged today', () => {
-    seed({ 'rainbow-pack': 2, 'sunset-set': 1 })
+    seed({ 'meow-mix-6': 2, 'turtle-time-12': 1 })
     renderCart()
     expect(screen.getByText(/won't be charged today/i)).toBeInTheDocument()
     expect(screen.getByText(/8 September/)).toBeInTheDocument()
   })
 
   it('quotes the amount that will be charged later', () => {
-    seed({ 'rainbow-pack': 2, 'sunset-set': 1 }) // 8.99*2 + 6.99 = 24.97
+    seed({ 'meow-mix-6': 2, 'turtle-time-12': 1 }) // 2.99*2 + 5.49 = 11.47
     renderCart()
-    expect(screen.getAllByText(/\$24\.97/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/\$11\.47/).length).toBeGreaterThan(0)
   })
 
   it('asks a grown-up before starting a pre-order', () => {
-    seed({ 'rainbow-pack': 1 })
+    seed({ 'meow-mix-6': 1 })
     renderCart()
     fireEvent.click(screen.getByRole('button', { name: /Pre-order/i }))
 
@@ -191,12 +191,12 @@ describe('Cart — pre-ordering', () => {
   })
 
   it('sends the basket once the check passes', async () => {
-    seed({ 'rainbow-pack': 2 })
+    seed({ 'meow-mix-6': 2 })
     renderCart()
     fireEvent.click(screen.getByRole('button', { name: /Pre-order/i }))
     await answerGate()
 
-    expect(startPreorder).toHaveBeenCalledWith({ 'rainbow-pack': 2 })
+    expect(startPreorder).toHaveBeenCalledWith({ 'meow-mix-6': 2 })
   })
 
   it('offers no pre-order at all when the basket is empty', () => {
