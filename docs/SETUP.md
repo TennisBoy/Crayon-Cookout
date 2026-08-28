@@ -9,7 +9,7 @@ knows where you are without asking you to re-explain.
 
 ## Where you are right now
 
-_Last updated: 2026-08-21 — **setup is complete; the app is live.**_
+_Last updated: 2026-08-28 — **setup is complete; the app is live.**_
 
 | Step | State |
 |---|---|
@@ -34,6 +34,12 @@ _Last updated: 2026-08-21 — **setup is complete; the app is live.**_
 | Payments | **Stripe live mode**, permanent webhook, entitlements in Postgres |
 | Comps | `python -m app.admin grant`, or promotion code `CRAYONFREE` |
 | Deployment root | `/home/ubuntu/crayon` — compose from `deploy/docker-compose.prod.yml` |
+| VM shape | `VM.Standard.E2.1.Micro` — **x86_64**, not Ampere/arm64. Build amd64 images |
+| Shipping images | Built on a workstation, `docker save` → `scp` → `docker load`, then retag in `.env`. No registry, no checkout on the VM — see [deployment.md](deployment.md) |
+
+**Deployed on 2026-08-28:** frontend `8236f42`, backend `b22435d` — both current
+with `main`, whose later commits are docs only. Check with
+`ssh <vm> "cd ~/crayon && docker compose ps"`.
 
 **Untested, unavoidably:** a real live purchase. Completing live checkout charges
 a real card, and Stripe's test cards are rejected in live mode. Doing one
