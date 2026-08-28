@@ -53,7 +53,7 @@ function write(cart) {
 /**
  * Set a line outright. Zero (or anything that rounds down to it) removes the
  * line, so walking the stepper down to nothing leaves a clean basket rather
- * than an invisible "0 x Sunset Set".
+ * than an invisible "0 x Turtle Time 12-pack".
  */
 export function setQty(id, qty) {
   const cart = getCart();

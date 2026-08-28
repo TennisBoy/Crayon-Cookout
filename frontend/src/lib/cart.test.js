@@ -9,46 +9,46 @@ beforeEach(() => localStorage.clear())
 describe('cart', () => {
   it('starts empty', () => {
     expect(getCart()).toEqual({})
-    expect(getQty('rainbow-pack')).toBe(0)
+    expect(getQty('meow-mix-6')).toBe(0)
     expect(cartCount()).toBe(0)
   })
 
   it('adds one pack at a time', () => {
-    addToCart('rainbow-pack')
-    expect(getQty('rainbow-pack')).toBe(1)
-    addToCart('rainbow-pack')
-    expect(getQty('rainbow-pack')).toBe(2)
+    addToCart('meow-mix-6')
+    expect(getQty('meow-mix-6')).toBe(1)
+    addToCart('meow-mix-6')
+    expect(getQty('meow-mix-6')).toBe(2)
   })
 
   it('keeps separate packs apart', () => {
-    addToCart('rainbow-pack')
-    addToCart('sunset-set')
-    addToCart('sunset-set')
-    expect(getCart()).toEqual({ 'rainbow-pack': 1, 'sunset-set': 2 })
+    addToCart('meow-mix-6')
+    addToCart('turtle-time-12')
+    addToCart('turtle-time-12')
+    expect(getCart()).toEqual({ 'meow-mix-6': 1, 'turtle-time-12': 2 })
     expect(cartCount()).toBe(3)
   })
 
   it('sets a quantity outright', () => {
-    setQty('ocean-bundle', 4)
-    expect(getQty('ocean-bundle')).toBe(4)
+    setQty('sky-scribbles-6', 4)
+    expect(getQty('sky-scribbles-6')).toBe(4)
   })
 
   // The stepper's minus button walks a line down to zero; at zero the line has
-  // to leave the basket rather than sit there as an invisible "0 x Sunset Set".
+  // to leave the basket rather than sit there as an invisible "0 x Turtle Time 12-pack".
   it('removes the line at zero rather than storing a zero', () => {
-    addToCart('sunset-set')
-    setQty('sunset-set', 0)
-    expect(getQty('sunset-set')).toBe(0)
-    expect('sunset-set' in getCart()).toBe(false)
+    addToCart('turtle-time-12')
+    setQty('turtle-time-12', 0)
+    expect(getQty('turtle-time-12')).toBe(0)
+    expect('turtle-time-12' in getCart()).toBe(false)
   })
 
   it('never stores a negative quantity', () => {
-    setQty('dino-shapes', -3)
-    expect('dino-shapes' in getCart()).toBe(false)
+    setQty('petal-party-6', -3)
+    expect('petal-party-6' in getCart()).toBe(false)
   })
 
   it('empties on clear', () => {
-    addToCart('classic-7')
+    addToCart('dressed-to-doodle-12')
     clearCart()
     expect(getCart()).toEqual({})
   })
@@ -67,9 +67,9 @@ describe('cart', () => {
   it('drops junk lines but keeps the good ones', () => {
     localStorage.setItem(
       'cc_cart',
-      JSON.stringify({ 'rainbow-pack': 2, 'sunset-set': 'lots', 'dino-shapes': 0, 'glitter-pink': 1.5 }),
+      JSON.stringify({ 'meow-mix-6': 2, 'turtle-time-12': 'lots', 'petal-party-6': 0, 'deep-sea-doodles-6': 1.5 }),
     )
-    expect(getCart()).toEqual({ 'rainbow-pack': 2 })
+    expect(getCart()).toEqual({ 'meow-mix-6': 2 })
   })
 
   // Both pages re-read on this event; without it the shelf and the basket drift.
@@ -77,10 +77,10 @@ describe('cart', () => {
     const seen = vi.fn()
     window.addEventListener('cc-cart-change', seen)
 
-    addToCart('rainbow-pack')
+    addToCart('meow-mix-6')
     expect(seen).toHaveBeenCalledTimes(1)
 
-    setQty('rainbow-pack', 5)
+    setQty('meow-mix-6', 5)
     expect(seen).toHaveBeenCalledTimes(2)
 
     clearCart()

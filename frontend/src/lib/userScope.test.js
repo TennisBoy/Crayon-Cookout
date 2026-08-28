@@ -10,7 +10,7 @@ const B = '22222222-2222-4222-8222-222222222222'
 const seedEverything = () => {
   localStorage.setItem('cc_entitlements', JSON.stringify(['kitchen', 'colouring']))
   localStorage.setItem('cc_collected', JSON.stringify(['Ocean/Coral']))
-  localStorage.setItem('cc_cart', JSON.stringify({ 'rainbow-pack': 2 }))
+  localStorage.setItem('cc_cart', JSON.stringify({ 'meow-mix-6': 2 }))
   localStorage.setItem('cc_trial_expiry', String(Date.now() + 86400000))
   localStorage.setItem('cc_trial_used', 'true')
   localStorage.setItem('cc_kitchen', 'true')
@@ -52,7 +52,7 @@ describe('applyUserScope', () => {
   it('keeps a basket built before signing in', () => {
     // Same person, one moment later — throwing away what they just added
     // would be its own bug.
-    localStorage.setItem('cc_cart', JSON.stringify({ 'rainbow-pack': 1 }))
+    localStorage.setItem('cc_cart', JSON.stringify({ 'meow-mix-6': 1 }))
     applyUserScope(A)
     expect(localStorage.getItem('cc_cart')).not.toBeNull()
   })
@@ -68,7 +68,7 @@ describe('applyUserScope', () => {
   })
 
   it('does nothing on a first visit while signed out', () => {
-    localStorage.setItem('cc_cart', JSON.stringify({ 'rainbow-pack': 1 }))
+    localStorage.setItem('cc_cart', JSON.stringify({ 'meow-mix-6': 1 }))
     expect(applyUserScope(null)).toBe(false)
     expect(localStorage.getItem('cc_cart')).not.toBeNull()
   })

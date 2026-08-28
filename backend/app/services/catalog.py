@@ -23,13 +23,22 @@ class Pack:
     price_cents: int
 
 
+# Every set sells in two sizes, and each size is its own id — that is what lets
+# one basket hold two 6-packs of a design and a 12 of it as well. A 12 costs
+# fifty cents less than the two 6-packs it replaces.
 PACKS: tuple[Pack, ...] = (
-    Pack("rainbow-pack", "Rainbow Pack", 899),
-    Pack("ocean-bundle", "Ocean Bundle", 749),
-    Pack("sunset-set", "Sunset Set", 699),
-    Pack("dino-shapes", "Dino Shapes", 999),
-    Pack("glitter-pink", "Glitter Pink", 599),
-    Pack("classic-7", "Classic 7", 1099),
+    Pack("meow-mix-6", "Meow Mix 6-pack", 299),
+    Pack("meow-mix-12", "Meow Mix 12-pack", 549),
+    Pack("turtle-time-6", "Turtle Time 6-pack", 299),
+    Pack("turtle-time-12", "Turtle Time 12-pack", 549),
+    Pack("sky-scribbles-6", "Sky Scribbles 6-pack", 299),
+    Pack("sky-scribbles-12", "Sky Scribbles 12-pack", 549),
+    Pack("petal-party-6", "Petal Party 6-pack", 299),
+    Pack("petal-party-12", "Petal Party 12-pack", 549),
+    Pack("deep-sea-doodles-6", "Deep Sea Doodles 6-pack", 299),
+    Pack("deep-sea-doodles-12", "Deep Sea Doodles 12-pack", 549),
+    Pack("dressed-to-doodle-6", "Dressed to Doodle 6-pack", 299),
+    Pack("dressed-to-doodle-12", "Dressed to Doodle 12-pack", 549),
 )
 
 BY_ID = {p.id: p for p in PACKS}
