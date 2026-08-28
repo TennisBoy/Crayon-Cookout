@@ -40,9 +40,11 @@ why `VITE_API_BASE_URL` defaults to `/api`.
 ## Install
 
 ```bash
-# arm64 (Oracle Ampere) — use the amd64 .deb on an x86 instance
+# This VM is x86_64 (VM.Standard.E2.1.Micro), so the amd64 .deb is correct.
+# On an Ampere/arm64 instance use the linux-arm64 .deb instead;
+# check with `uname -m` rather than assuming.
 curl -fsSLo cloudflared.deb \
-  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
 sudo dpkg -i cloudflared.deb
 
 cloudflared tunnel login          # opens a browser URL to authorise
