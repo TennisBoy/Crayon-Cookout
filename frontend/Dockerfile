@@ -1,7 +1,9 @@
 # Crayon Cookout SPA
 #
-# Two stages: build the bundle, then serve the static output. Multi-arch —
-# nothing here is architecture-specific, so it builds on Oracle's arm64 tier.
+# Two stages: build the bundle, then serve the static output. Nothing here is
+# architecture-specific, so it builds for amd64 or arm64 — but the image is
+# built off the VM and loaded there, so it must be built FOR the VM's
+# architecture. Production is x86_64; see docs/deployment.md.
 #
 # Served by `serve`, not Nginx or Caddy: Cloudflare Tunnel terminates TLS and
 # routes to these ports directly, so a reverse proxy in the image would be a

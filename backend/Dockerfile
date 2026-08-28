@@ -1,7 +1,8 @@
 # Crayon Cookout API
 #
-# Multi-arch: builds on both amd64 and arm64 (Oracle Cloud's free tier is
-# Ampere/arm64). No architecture-specific base image or wheel is pinned.
+# Multi-arch: builds on both amd64 and arm64. No architecture-specific base
+# image or wheel is pinned. Production is x86_64 (VM.Standard.E2.1.Micro), and
+# since images are built off the VM they must be built for that architecture.
 
 FROM python:3.12-slim AS base
 

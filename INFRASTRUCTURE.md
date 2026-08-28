@@ -38,9 +38,11 @@ than this repo.
   memory-hungry step and is the reason for the 4 GB swapfile — `setup-vm.sh`
   only creates 2 GB by default, which was raised by hand before the first
   deploy. If a build dies with no message, check `sudo dmesg | grep -i killed`.
-- **x86_64, not Ampere.** `docs/SETUP.md` was written assuming the arm64 free
-  tier. Everything works unchanged, but any `cloudflared` or Docker download
-  must use the **amd64** artefact, not arm64.
+- **x86_64, not Ampere.** Ampere capacity was never available, so this is the
+  Always Free x86 shape. Everything runs unchanged, but every artefact must be
+  the **amd64** one: `cloudflared`, Docker packages, and the images built to
+  ship here. An image built for arm64 loads without complaint and then fails
+  to start. Run `uname -m` rather than trusting the shape you meant to create.
 - **Ubuntu 20.04 left standard support in April 2025.** It runs the stack fine
   and Docker publishes `focal` packages, but security patching needs Ubuntu Pro
   (free for personal use, 5 machines) or a rebuild on a current LTS.
@@ -109,8 +111,11 @@ to Cloudflare, so 80 and 443 stay shut.
 | Compose | v2.35.1 |
 
 **No source checkout lives on the VM.** The deployment root holds configuration
-only; images are built in CI and pulled by tag. `docker-compose.yml` there has
-no `build:` section, and the image references are overridable:
+only. `docker-compose.yml` there has no `build:` section; images are built on a
+workstation, shipped over SSH as a tarball, loaded into the VM's Docker daemon,
+and selected by tag. **CI does not publish images** — it builds them to prove
+the Dockerfiles work, then discards them. The full procedure is in
+[docs/deployment.md](docs/deployment.md). The image references are overridable:
 
 > **The compose file is version-controlled.** It lives at
 > [`deploy/docker-compose.prod.yml`](deploy/docker-compose.prod.yml) and is
@@ -121,11 +126,14 @@ no `build:` section, and the image references are overridable:
 > now fails if the two files disagree about which variables the backend gets.
 
 ```
-BACKEND_IMAGE=ghcr.io/tennisboy/crayon-cookout-backend:<sha>
-FRONTEND_IMAGE=ghcr.io/tennisboy/crayon-cookout-frontend:<sha>
+BACKEND_IMAGE=crayon-cookout-backend:<sha>
+FRONTEND_IMAGE=crayon-cookout-frontend:<sha>
 ```
 
-Unset, they default to the locally built `crayon-cookout-{backend,frontend}:latest`.
+These are plain local tags, not registry references — the images exist only in
+this VM's Docker daemon. Unset, they default to
+`crayon-cookout-{backend,frontend}:latest`, which is a stale 12-day-old image
+and never what you want in production.
 
 | Service | Bound to | Image |
 |---|---|---|
@@ -134,16 +142,23 @@ Unset, they default to the locally built `crayon-cookout-{backend,frontend}:late
 
 ```bash
 cd ~/crayon
-docker compose pull && docker compose up -d    # deploy a new image
+# `docker compose pull` does NOT work here: these tags exist in no registry.
+# Deploy by loading a shipped image, then pointing .env at its tag:
+#   docker load -i /tmp/frontend-<sha>.tar
+#   sed -i "s|^FRONTEND_IMAGE=.*|FRONTEND_IMAGE=crayon-cookout-frontend:<sha>|" .env
+docker compose up -d
 docker compose ps
 docker compose logs backend --tail=50
 curl -s localhost:8000/api/health               # {"status":"ok"}
 curl -s localhost:8000/api/health/ready
 ```
 
-Because there is no checkout, building on the VM is no longer possible without
-re-cloning. That is deliberate — a 952 MB box builds slowly — but it means the
-registry is now on the critical path for recovery. See [Recovery](#recovery).
+Because there is no checkout, building on the VM is not possible without
+re-cloning. That is deliberate — a 952 MB box builds slowly — but it means
+**recovery depends on the images already present on this VM**, since there is
+no registry to pull from. Every previously deployed tag is kept for exactly
+that reason: a rollback is a tag change in `.env` plus `docker compose up -d`.
+Do not run a blanket `docker image prune -a`. See [Recovery](#recovery).
 
 `/api/health/ready` reports capabilities:
 
@@ -274,7 +289,7 @@ docker compose config | grep SUPABASE_SERVICE_ROLE_KEY  # must be non-empty
 | Tunnel down (502 from Cloudflare) | `sudo systemctl restart cloudflared`; containers up? `docker compose ps` |
 | `/api/*` returns HTML | Ingress rule order — `/api` must precede the catch-all |
 | VM unreachable | OCI console → instance state, then serial console. Do not trust `ping` |
-| Registry unreachable | Re-clone the repo and build locally: `git clone … && ./scripts/deploy.sh`. Slow on this box, but it works with no registry at all |
+| Need an image the VM does not have | There is no registry to pull from. Build it on a workstation and ship it (see [docs/deployment.md](docs/deployment.md)). If no workstation is available, re-clone on the VM and build in the clone — slow on this box, and it needs the swapfile, but it works offline |
 | Total VM loss | Rebuild from `docs/SETUP.md` steps 3–7. Supabase holds all persistent data; the VM is disposable |
 
 The VM stores no durable state. Designs and collectibles live in Postgres, so

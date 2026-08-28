@@ -149,13 +149,20 @@ Without that redirect URL, password-reset emails refuse to link back.
 
 ## 3. Oracle Cloud — create the VM ✅
 
-**Start the signup early.** Free-tier ARM (Ampere) capacity is genuinely
+**Start the signup early.** Free-tier Ampere (ARM) capacity is genuinely
 scarce — "Out of host capacity" on instance creation is common and can need
 retries over hours or days. Account verification needs a card and can lag.
 This is the step most likely to stall everything else.
 
 - Ubuntu 22.04+
-- Ampere/arm64 free tier is the target; amd64 works unchanged
+- **This deployment runs x86_64**, not Ampere — `VM.Standard.E2.1.Micro`,
+  the Always Free x86 shape — because Ampere capacity was never available.
+  Either architecture runs the stack unchanged, but every artefact you
+  download has to match the shape you actually got: `cloudflared` and the
+  Docker packages are published per-architecture, and so are the images you
+  build to ship here. **Run `uname -m` on the VM and believe it** rather than
+  the shape you meant to create. Assuming arm64 is how a wrong `.deb` gets
+  installed, and how an unrunnable image gets built and shipped.
 - Save the SSH key, note the public IP
 - **Keep the default SSH rule** (TCP 22 from `0.0.0.0/0`) — you need it for
   step 4, and the default security list already has it.
@@ -211,22 +218,29 @@ the apex-domain routing expects.
 
 ## 6. Deploy ✅
 
+Images are built on a workstation and shipped over SSH — there is no source
+checkout on the VM and no registry. The full procedure, including the
+PowerShell-only build rule, is in [deployment.md](deployment.md); in short:
+build, `docker save`, `scp`, `docker load`, point `FRONTEND_IMAGE` /
+`BACKEND_IMAGE` in `~/crayon/.env` at the new sha, then:
+
 ```bash
-./scripts/deploy.sh
+cd ~/crayon && docker compose up -d
 curl -s localhost:8000/api/health/ready
 ```
 
 Want `"database": true`. That proves the keys are *present*, not yet that they
 are *correct* — step 8 proves that.
 
-`deploy.sh` will not report success unless every container reports healthy, and
-prints the rollback command if it fails.
+`scripts/deploy.sh` builds from a checkout using the root `docker-compose.yml`
+and is a **local-development** tool — it is not how production is updated and
+will not work on the VM.
 
 ## 7. Cloudflare Tunnel ✅
 
 ```bash
 curl -fsSLo cloudflared.deb \
-  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+  https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
 sudo dpkg -i cloudflared.deb
 cloudflared tunnel login
 cloudflared tunnel create crayon-cookout
